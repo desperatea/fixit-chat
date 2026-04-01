@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ФиксИТ — IT-аутсорсинг</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: #333; }
+
+    .hero {
+      background: linear-gradient(135deg, #1565c0 0%, #1976d2 50%, #42a5f5 100%);
+      color: white;
+      padding: 80px 20px;
+      text-align: center;
+    }
+    .hero h1 { font-size: 2.5em; margin-bottom: 12px; }
+    .hero p { font-size: 1.2em; opacity: 0.9; max-width: 600px; margin: 0 auto; }
+
+    .services {
+      max-width: 900px;
+      margin: 60px auto;
+      padding: 0 20px;
+    }
+    .services h2 {
+      text-align: center;
+      font-size: 1.8em;
+      margin-bottom: 40px;
+      color: #1565c0;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: #fff;
+      border: 1px solid #e0e0e0;
+      border-radius: 12px;
+      padding: 28px;
+      text-align: center;
+      transition: box-shadow 0.2s;
+    }
+    .card:hover { box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+    .card .icon { font-size: 2.5em; margin-bottom: 16px; }
+    .card h3 { margin-bottom: 8px; color: #1565c0; }
+    .card p { color: #666; font-size: 0.95em; line-height: 1.5; }
+
+    .cta {
+      background: #f5f5f5;
+      padding: 60px 20px;
+      text-align: center;
+    }
+    .cta h2 { font-size: 1.6em; margin-bottom: 12px; }
+    .cta p { color: #666; margin-bottom: 24px; }
+    .cta .btn {
+      display: inline-block;
+      background: #1976d2;
+      color: white;
+      padding: 14px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 1.1em;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .cta .btn:hover { background: #1565c0; }
+
+    footer {
+      background: #263238;
+      color: #b0bec5;
+      text-align: center;
+      padding: 30px 20px;
+      font-size: 0.9em;
+    }
+    footer a { color: #90caf9; }
+  </style>
+</head>
+<body>
+
+  <div class="hero">
+    <h1>ФиксИТ</h1>
+    <p>IT-аутсорсинг для вашего бизнеса. Обслуживание компьютеров, серверов, сетей и программного обеспечения.</p>
+  </div>
+
+  <div class="services">
+    <h2>Наши услуги</h2>
+    <div class="cards">
+      <div class="card">
+        <div class="icon">🖥</div>
+        <h3>Обслуживание ПК</h3>
+        <p>Настройка, ремонт и обслуживание рабочих станций. Установка ПО, обновления, антивирусная защита.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🌐</div>
+        <h3>Сети и серверы</h3>
+        <p>Проектирование и обслуживание локальных сетей. Настройка серверов, почты, VPN, Active Directory.</p>
+      </div>
+      <div class="card">
+        <div class="icon">🛡</div>
+        <h3>Информационная безопасность</h3>
+        <p>Защита данных, резервное копирование, мониторинг угроз. Соответствие 152-ФЗ.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="cta">
+    <h2>Нужна помощь?</h2>
+    <p>Нажмите на кнопку чата в правом нижнем углу — мы на связи!</p>
+    <a href="tel:+78634000000" class="btn">+7 (8634) 00-00-00</a>
+  </div>
+
+  <footer>
+    <p>&copy; 2026 ФиксИТ — IT-аутсорсинг, г. Таганрог | <a href="https://fixitmail.ru">fixitmail.ru</a></p>
+  </footer>
+
+  <!-- Виджет чата ФиксИТ -->
+  <script async src="/widget/loader.js"></script>
+
+</body>
+</html>
