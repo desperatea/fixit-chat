@@ -46,6 +46,7 @@ select = ["E", "F", "I", "N", "UP", "B", "A", "SIM"]
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]
+pythonpath = ["."]
 
 [build-system]
 requires = ["setuptools>=75"]
