@@ -1,0 +1,1061 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FixIT Chat — Презентация</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --primary: #1565C0;
+    --primary-light: #1E88E5;
+    --primary-dark: #0D47A1;
+    --accent: #00C853;
+    --accent-warn: #FF6D00;
+    --bg: #0F172A;
+    --bg-card: #1E293B;
+    --bg-card-hover: #263548;
+    --text: #F1F5F9;
+    --text-muted: #94A3B8;
+    --border: #334155;
+    --gradient-blue: linear-gradient(135deg, #1565C0, #1E88E5);
+    --gradient-green: linear-gradient(135deg, #00C853, #69F0AE);
+    --gradient-orange: linear-gradient(135deg, #FF6D00, #FFA726);
+    --gradient-purple: linear-gradient(135deg, #7C3AED, #A78BFA);
+    --gradient-red: linear-gradient(135deg, #DC2626, #F87171);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    overflow-x: hidden;
+  }
+
+  /* ===== NAVIGATION ===== */
+  nav {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    background: rgba(15, 23, 42, 0.9);
+    backdrop-filter: blur(20px);
+    border-bottom: 1px solid var(--border);
+    z-index: 100;
+    padding: 0 40px;
+  }
+
+  nav .nav-inner {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+  }
+
+  nav .logo {
+    font-weight: 700;
+    font-size: 20px;
+    color: var(--primary-light);
+  }
+
+  nav .logo span { color: var(--text); }
+
+  nav .nav-links {
+    display: flex;
+    gap: 32px;
+    list-style: none;
+  }
+
+  nav .nav-links a {
+    color: var(--text-muted);
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 500;
+    transition: color 0.2s;
+  }
+
+  nav .nav-links a:hover { color: var(--text); }
+
+  /* ===== SECTIONS ===== */
+  section {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 100px 40px;
+  }
+
+  .container {
+    max-width: 1100px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  /* ===== HERO ===== */
+  .hero {
+    text-align: center;
+    position: relative;
+  }
+
+  .hero::before {
+    content: '';
+    position: absolute;
+    top: -200px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 600px;
+    height: 600px;
+    background: radial-gradient(circle, rgba(21, 101, 192, 0.15), transparent 70%);
+    pointer-events: none;
+  }
+
+  .badge {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    margin-bottom: 24px;
+    border: 1px solid var(--primary);
+    color: var(--primary-light);
+    background: rgba(21, 101, 192, 0.1);
+  }
+
+  h1 {
+    font-size: 56px;
+    font-weight: 800;
+    line-height: 1.1;
+    margin-bottom: 24px;
+    letter-spacing: -1px;
+  }
+
+  h1 .highlight {
+    background: var(--gradient-blue);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero-sub {
+    font-size: 20px;
+    color: var(--text-muted);
+    max-width: 600px;
+    margin: 0 auto 48px;
+    line-height: 1.7;
+  }
+
+  .hero-stats {
+    display: flex;
+    justify-content: center;
+    gap: 64px;
+    margin-top: 64px;
+  }
+
+  .hero-stat-value {
+    font-size: 36px;
+    font-weight: 700;
+    color: var(--primary-light);
+  }
+
+  .hero-stat-label {
+    font-size: 14px;
+    color: var(--text-muted);
+    margin-top: 4px;
+  }
+
+  /* ===== SECTION HEADERS ===== */
+  .section-tag {
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--primary-light);
+    margin-bottom: 12px;
+  }
+
+  h2 {
+    font-size: 40px;
+    font-weight: 700;
+    margin-bottom: 16px;
+    letter-spacing: -0.5px;
+  }
+
+  .section-desc {
+    font-size: 18px;
+    color: var(--text-muted);
+    max-width: 600px;
+    margin-bottom: 48px;
+  }
+
+  /* ===== PROBLEM SECTION ===== */
+  .problems-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-top: 48px;
+  }
+
+  .problem-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+
+  .problem-card:hover {
+    transform: translateY(-4px);
+    border-color: var(--primary);
+  }
+
+  .problem-icon {
+    font-size: 32px;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .problem-card h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .problem-card p {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* ===== SOLUTION SECTION ===== */
+  .solution-row {
+    display: flex;
+    gap: 48px;
+    align-items: center;
+    margin-bottom: 80px;
+  }
+
+  .solution-row.reverse { flex-direction: row-reverse; }
+
+  .solution-text { flex: 1; }
+
+  .solution-visual {
+    flex: 1;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    min-height: 300px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .solution-text h3 {
+    font-size: 28px;
+    font-weight: 700;
+    margin-bottom: 16px;
+  }
+
+  .solution-text p {
+    color: var(--text-muted);
+    font-size: 16px;
+    margin-bottom: 24px;
+  }
+
+  .solution-features {
+    list-style: none;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .solution-features li {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 15px;
+  }
+
+  .solution-features .check {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: rgba(0, 200, 83, 0.15);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+  }
+
+  /* ===== SCHEMA ===== */
+  .schema-container {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 48px;
+    text-align: center;
+  }
+
+  .schema-flow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-top: 32px;
+  }
+
+  .schema-node {
+    padding: 20px 28px;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 15px;
+    min-width: 160px;
+    text-align: center;
+  }
+
+  .schema-node.visitor {
+    background: rgba(0, 200, 83, 0.12);
+    border: 1px solid rgba(0, 200, 83, 0.3);
+    color: #69F0AE;
+  }
+
+  .schema-node.server {
+    background: rgba(21, 101, 192, 0.15);
+    border: 1px solid rgba(21, 101, 192, 0.4);
+    color: #64B5F6;
+  }
+
+  .schema-node.agent {
+    background: rgba(124, 58, 237, 0.12);
+    border: 1px solid rgba(124, 58, 237, 0.3);
+    color: #A78BFA;
+  }
+
+  .schema-node small {
+    display: block;
+    font-weight: 400;
+    font-size: 12px;
+    margin-top: 4px;
+    opacity: 0.7;
+  }
+
+  .schema-arrow {
+    font-size: 24px;
+    color: var(--text-muted);
+  }
+
+  /* ===== SECURITY ===== */
+  .security-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+  }
+
+  .security-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 28px;
+    display: flex;
+    gap: 20px;
+    align-items: flex-start;
+    transition: border-color 0.2s;
+  }
+
+  .security-card:hover { border-color: var(--primary); }
+
+  .security-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .security-card h3 {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+
+  .security-card p {
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.5;
+  }
+
+  /* ===== COMPARISON ===== */
+  .comparison-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    background: var(--bg-card);
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+  }
+
+  .comparison-table th,
+  .comparison-table td {
+    padding: 18px 24px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    font-size: 15px;
+  }
+
+  .comparison-table th {
+    background: rgba(21, 101, 192, 0.1);
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+  }
+
+  .comparison-table th:last-child {
+    color: var(--primary-light);
+  }
+
+  .comparison-table tr:last-child td { border-bottom: none; }
+
+  .comparison-table td:first-child {
+    font-weight: 500;
+    color: var(--text-muted);
+  }
+
+  .comparison-table td:last-child {
+    color: var(--accent);
+    font-weight: 500;
+  }
+
+  .tag-yes {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(0, 200, 83, 0.12);
+    color: var(--accent);
+  }
+
+  .tag-no {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(220, 38, 38, 0.12);
+    color: #F87171;
+  }
+
+  .tag-partial {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 600;
+    background: rgba(255, 109, 0, 0.12);
+    color: #FFA726;
+  }
+
+  /* ===== STACK ===== */
+  .stack-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+  }
+
+  .stack-item {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    text-align: center;
+    transition: border-color 0.2s;
+  }
+
+  .stack-item:hover { border-color: var(--primary); }
+
+  .stack-item .stack-icon {
+    font-size: 28px;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .stack-item h4 {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 4px;
+  }
+
+  .stack-item p {
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+
+  /* ===== DEPLOY ===== */
+  .deploy-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 700px;
+  }
+
+  .deploy-step {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 28px;
+  }
+
+  .deploy-step-num {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: var(--gradient-blue);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .deploy-step code {
+    background: rgba(21, 101, 192, 0.15);
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    color: var(--primary-light);
+  }
+
+  .deploy-step p {
+    font-size: 15px;
+  }
+
+  /* ===== FINAL CTA ===== */
+  .final {
+    text-align: center;
+  }
+
+  .final h2 {
+    font-size: 48px;
+    margin-bottom: 24px;
+  }
+
+  .final .hero-sub {
+    margin-bottom: 48px;
+  }
+
+  .final-cards {
+    display: flex;
+    gap: 24px;
+    justify-content: center;
+    margin-top: 48px;
+  }
+
+  .final-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 32px;
+    width: 280px;
+    text-align: center;
+  }
+
+  .final-card .final-card-icon {
+    font-size: 40px;
+    margin-bottom: 16px;
+  }
+
+  .final-card h3 {
+    font-size: 18px;
+    font-weight: 600;
+    margin-bottom: 8px;
+  }
+
+  .final-card p {
+    font-size: 14px;
+    color: var(--text-muted);
+  }
+
+  /* ===== 152-FZ BADGE ===== */
+  .compliance-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    background: rgba(0, 200, 83, 0.08);
+    border: 1px solid rgba(0, 200, 83, 0.2);
+    font-size: 14px;
+    color: var(--accent);
+    font-weight: 500;
+    margin-top: 16px;
+  }
+
+  /* ===== FOOTER ===== */
+  footer {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-muted);
+    font-size: 14px;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="nav-inner">
+    <div class="logo">Фикс<span>ИТ</span> Chat</div>
+    <ul class="nav-links">
+      <li><a href="#problem">Проблема</a></li>
+      <li><a href="#solution">Решение</a></li>
+      <li><a href="#security">Безопасность</a></li>
+      <li><a href="#compare">Сравнение</a></li>
+      <li><a href="#deploy">Запуск</a></li>
+    </ul>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="container">
+    <div class="badge">СОБСТВЕННАЯ РАЗРАБОТКА</div>
+    <h1>Чат техподдержки<br><span class="highlight">под полным контролем</span></h1>
+    <p class="hero-sub">
+      Профессиональная система поддержки клиентов для fixitmail.ru.
+      Без абонентских плат, без ограничений, без зависимости от чужих сервисов.
+    </p>
+    <div class="hero-stats">
+      <div>
+        <div class="hero-stat-value">0 &#8381;</div>
+        <div class="hero-stat-label">ежемесячная плата</div>
+      </div>
+      <div>
+        <div class="hero-stat-value">7 KB</div>
+        <div class="hero-stat-label">размер виджета (gzip)</div>
+      </div>
+      <div>
+        <div class="hero-stat-value">6</div>
+        <div class="hero-stat-label">уровней защиты</div>
+      </div>
+      <div>
+        <div class="hero-stat-value">&lt;1 сек</div>
+        <div class="hero-stat-label">доставка сообщений</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section id="problem">
+  <div class="container">
+    <div class="section-tag">Проблема</div>
+    <h2>Почему не сторонние решения?</h2>
+    <p class="section-desc">
+      Jivosite, Carrot Quest, Tawk.to — все они имеют критичные для нас ограничения.
+    </p>
+    <div class="problems-grid">
+      <div class="problem-card">
+        <span class="problem-icon">&#128176;</span>
+        <h3>Абонентская плата</h3>
+        <p>От 2 000 до 10 000 &#8381;/мес за команду. При этом функции, которые нам не нужны, мы всё равно оплачиваем.</p>
+      </div>
+      <div class="problem-card">
+        <span class="problem-icon">&#128274;</span>
+        <h3>Данные на чужих серверах</h3>
+        <p>Переписка с клиентами, их персональные данные хранятся у третьей стороны. Риски по 152-ФЗ и утечки.</p>
+      </div>
+      <div class="problem-card">
+        <span class="problem-icon">&#9940;</span>
+        <h3>Санкционные риски</h3>
+        <p>Зарубежные сервисы могут отключить доступ в любой момент. Российские SaaS могут закрыться или поднять цены.</p>
+      </div>
+      <div class="problem-card">
+        <span class="problem-icon">&#128295;</span>
+        <h3>Нет кастомизации</h3>
+        <p>Нельзя добавить свои поля формы, свою логику обработки, интегрировать с внутренними системами.</p>
+      </div>
+      <div class="problem-card">
+        <span class="problem-icon">&#128269;</span>
+        <h3>Лишние скрипты на сайте</h3>
+        <p>Чужой JS-код на нашем сайте: аналитика, трекинг, потенциальные уязвимости. Мы не контролируем, что он делает.</p>
+      </div>
+      <div class="problem-card">
+        <span class="problem-icon">&#128268;</span>
+        <h3>Vendor lock-in</h3>
+        <p>История переписок, настройки, интеграции — всё привязано к одному сервису. Миграция болезненна.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SOLUTION -->
+<section id="solution">
+  <div class="container">
+    <div class="section-tag">Решение</div>
+    <h2>FixIT Chat</h2>
+    <p class="section-desc">Свой чат, который мы полностью контролируем.</p>
+
+    <!-- Widget -->
+    <div class="solution-row">
+      <div class="solution-text">
+        <h3>&#128172; Виджет для сайта</h3>
+        <p>Одна строка кода на сайт &mdash; и чат работает. Лёгкий, быстрый, не мешает загрузке страницы.</p>
+        <ul class="solution-features">
+          <li><span class="check">&#10003;</span> 7 KB &mdash; легче одной картинки</li>
+          <li><span class="check">&#10003;</span> Shadow DOM &mdash; не ломает стили сайта</li>
+          <li><span class="check">&#10003;</span> Сообщения в реалтайме через WebSocket</li>
+          <li><span class="check">&#10003;</span> Настраиваемая форма (поля, цвета, логотип)</li>
+          <li><span class="check">&#10003;</span> Мобильная адаптация</li>
+          <li><span class="check">&#10003;</span> Оценка качества поддержки (1-5)</li>
+        </ul>
+      </div>
+      <div class="solution-visual">
+        <div style="text-align:center; width:100%;">
+          <div style="font-size:14px; color:var(--text-muted); margin-bottom:16px;">Встраивается одной строкой:</div>
+          <div style="background:rgba(0,0,0,0.3); border-radius:8px; padding:16px; font-family:monospace; font-size:14px; color:#69F0AE; word-break:break-all;">
+            &lt;script async src="https://chat.fixitmail.ru/widget/loader.js"&gt;&lt;/script&gt;
+          </div>
+          <div style="margin-top:32px; font-size: 64px;">&#128488;</div>
+          <div style="font-size:14px; color:var(--text-muted); margin-top:8px;">Кнопка появляется в правом нижнем углу</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Admin -->
+    <div class="solution-row reverse">
+      <div class="solution-text">
+        <h3>&#128187; Панель оператора</h3>
+        <p>Удобная админ-панель для специалистов поддержки. Всё для быстрой и качественной работы с обращениями.</p>
+        <ul class="solution-features">
+          <li><span class="check">&#10003;</span> Список сессий с поиском и фильтрами</li>
+          <li><span class="check">&#10003;</span> Чат в реалтайме + индикатор набора</li>
+          <li><span class="check">&#10003;</span> Внутренние заметки к обращениям</li>
+          <li><span class="check">&#10003;</span> Звуковые уведомления о новых обращениях</li>
+          <li><span class="check">&#10003;</span> Дашборд со статистикой и графиками</li>
+          <li><span class="check">&#10003;</span> Управление агентами и настройками</li>
+        </ul>
+      </div>
+      <div class="solution-visual">
+        <div style="text-align:center; width:100%;">
+          <div style="font-size:64px; margin-bottom:16px;">&#128202;</div>
+          <div style="font-size: 16px; font-weight: 600; margin-bottom: 8px;">Дашборд</div>
+          <div style="display:flex; gap:16px; justify-content:center; margin-top:24px;">
+            <div style="background:rgba(0,200,83,0.1); border-radius:8px; padding:16px 20px; text-align:center;">
+              <div style="font-size:24px; font-weight:700; color:#69F0AE;">12</div>
+              <div style="font-size:12px; color:var(--text-muted);">Открытых</div>
+            </div>
+            <div style="background:rgba(21,101,192,0.1); border-radius:8px; padding:16px 20px; text-align:center;">
+              <div style="font-size:24px; font-weight:700; color:#64B5F6;">4.8</div>
+              <div style="font-size:12px; color:var(--text-muted);">Рейтинг</div>
+            </div>
+            <div style="background:rgba(124,58,237,0.1); border-radius:8px; padding:16px 20px; text-align:center;">
+              <div style="font-size:24px; font-weight:700; color:#A78BFA;">2м</div>
+              <div style="font-size:12px; color:var(--text-muted);">Ответ</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Schema -->
+    <div class="schema-container">
+      <div class="section-tag">Как это работает</div>
+      <h3 style="font-size:24px; margin-bottom:8px;">Архитектура системы</h3>
+      <p style="color:var(--text-muted); font-size:14px;">Все компоненты работают в Docker-контейнерах на одном сервере</p>
+      <div class="schema-flow">
+        <div class="schema-node visitor">
+          &#127760; fixitmail.ru
+          <small>Виджет (7 KB)</small>
+        </div>
+        <div class="schema-arrow">&#10230;</div>
+        <div class="schema-node server">
+          &#9881; chat.fixitmail.ru
+          <small>API + WebSocket + БД</small>
+        </div>
+        <div class="schema-arrow">&#10230;</div>
+        <div class="schema-node agent">
+          &#128100; Админ-панель
+          <small>Специалисты поддержки</small>
+        </div>
+      </div>
+      <div class="schema-flow" style="margin-top:16px;">
+        <div class="schema-arrow" style="transform:rotate(90deg); font-size:18px; color:#FFA726;">&#10230;</div>
+      </div>
+      <div class="schema-flow">
+        <div class="schema-node" style="background:rgba(255,109,0,0.1); border:1px solid rgba(255,109,0,0.3); color:#FFA726;">
+          &#128233; Telegram
+          <small>Уведомления о новых обращениях</small>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- SECURITY -->
+<section id="security" style="background: linear-gradient(180deg, var(--bg) 0%, rgba(21,101,192,0.03) 50%, var(--bg) 100%);">
+  <div class="container">
+    <div class="section-tag">Безопасность</div>
+    <h2>6 уровней защиты</h2>
+    <p class="section-desc">Каждое обращение защищено на каждом этапе &mdash; от ввода данных до хранения в базе.</p>
+
+    <div class="security-grid">
+      <div class="security-card">
+        <div class="security-num" style="background:rgba(0,200,83,0.12); color:#69F0AE;">1</div>
+        <div>
+          <h3>HTTPS шифрование канала</h3>
+          <p>Все данные между браузером и сервером передаются по зашифрованному каналу. Wildcard SSL-сертификат *.fixitmail.ru.</p>
+        </div>
+      </div>
+      <div class="security-card">
+        <div class="security-num" style="background:rgba(21,101,192,0.15); color:#64B5F6;">2</div>
+        <div>
+          <h3>AES-256-GCM шифрование данных</h3>
+          <p>Имена, телефоны, сообщения &mdash; всё шифруется перед записью в БД. Даже при утечке базы данные нечитаемы.</p>
+        </div>
+      </div>
+      <div class="security-card">
+        <div class="security-num" style="background:rgba(124,58,237,0.12); color:#A78BFA;">3</div>
+        <div>
+          <h3>JWT-аутентификация</h3>
+          <p>Access-токен живёт 15 минут. Refresh-токен в httpOnly cookie &mdash; недоступен из JavaScript. Мгновенный logout через Redis.</p>
+        </div>
+      </div>
+      <div class="security-card">
+        <div class="security-num" style="background:rgba(255,109,0,0.12); color:#FFA726;">4</div>
+        <div>
+          <h3>Защита от брутфорса</h3>
+          <p>5 неудачных попыток входа &mdash; IP блокируется на 15 минут. Rate limiting: 10 попыток/мин на логин, 100/мин на API.</p>
+        </div>
+      </div>
+      <div class="security-card">
+        <div class="security-num" style="background:rgba(220,38,38,0.12); color:#F87171;">5</div>
+        <div>
+          <h3>IP-whitelist для админки</h3>
+          <p>Доступ к панели управления только с разрешённых IP-адресов. Удалёнщики &mdash; через VPN или по белому списку.</p>
+        </div>
+      </div>
+      <div class="security-card">
+        <div class="security-num" style="background:rgba(236,72,153,0.12); color:#F472B6;">6</div>
+        <div>
+          <h3>Security Headers</h3>
+          <p>CSP, X-Frame-Options, HSTS, X-Content-Type-Options &mdash; 16 заголовков безопасности на каждый ответ сервера.</p>
+        </div>
+      </div>
+    </div>
+
+    <div style="text-align:center; margin-top:32px;">
+      <div class="compliance-badge">
+        &#128274; Соответствие 152-ФЗ &mdash; персональные данные зашифрованы и хранятся на нашем сервере
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- COMPARISON -->
+<section id="compare">
+  <div class="container">
+    <div class="section-tag">Сравнение</div>
+    <h2>Мы vs SaaS-решения</h2>
+    <p class="section-desc">Почему своё решение выгоднее стороннего сервиса.</p>
+
+    <table class="comparison-table">
+      <thead>
+        <tr>
+          <th style="width:30%;">Критерий</th>
+          <th style="width:35%;">SaaS (Jivosite, Carrot Quest)</th>
+          <th style="width:35%;">FixIT Chat</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Стоимость</td>
+          <td>2 000 &mdash; 10 000 &#8381;/мес</td>
+          <td><span class="tag-yes">0 &#8381;/мес</span></td>
+        </tr>
+        <tr>
+          <td>Где хранятся данные</td>
+          <td><span class="tag-no">Чужие серверы</span></td>
+          <td><span class="tag-yes">Наш сервер</span></td>
+        </tr>
+        <tr>
+          <td>Шифрование в БД</td>
+          <td><span class="tag-no">Нет</span></td>
+          <td><span class="tag-yes">AES-256-GCM</span></td>
+        </tr>
+        <tr>
+          <td>Кастомизация формы</td>
+          <td><span class="tag-partial">Ограниченная</span></td>
+          <td><span class="tag-yes">Полная</span></td>
+        </tr>
+        <tr>
+          <td>Доступ к исходному коду</td>
+          <td><span class="tag-no">Нет</span></td>
+          <td><span class="tag-yes">Полный</span></td>
+        </tr>
+        <tr>
+          <td>Чужой JS на сайте</td>
+          <td><span class="tag-no">Да, с трекингом</span></td>
+          <td><span class="tag-yes">Нет, только наш код</span></td>
+        </tr>
+        <tr>
+          <td>Санкционные риски</td>
+          <td><span class="tag-no">Есть</span></td>
+          <td><span class="tag-yes">Нет</span></td>
+        </tr>
+        <tr>
+          <td>Работа без интернета (LAN)</td>
+          <td><span class="tag-no">Невозможно</span></td>
+          <td><span class="tag-yes">Работает</span></td>
+        </tr>
+        <tr>
+          <td>152-ФЗ</td>
+          <td><span class="tag-partial">Зависит от сервиса</span></td>
+          <td><span class="tag-yes">Полное соответствие</span></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- STACK -->
+<section id="stack" style="min-height: auto; padding: 80px 40px;">
+  <div class="container">
+    <div class="section-tag">Технологии</div>
+    <h2>Проверенный стек</h2>
+    <p class="section-desc">Современные, надёжные технологии с активным сообществом.</p>
+
+    <div class="stack-grid">
+      <div class="stack-item">
+        <span class="stack-icon">&#9889;</span>
+        <h4>FastAPI</h4>
+        <p>Python, async, автодокументация</p>
+      </div>
+      <div class="stack-item">
+        <span class="stack-icon">&#128024;</span>
+        <h4>PostgreSQL 16</h4>
+        <p>Надёжная СУБД</p>
+      </div>
+      <div class="stack-item">
+        <span class="stack-icon">&#128640;</span>
+        <h4>Redis 7</h4>
+        <p>Кеш, очереди, pub/sub</p>
+      </div>
+      <div class="stack-item">
+        <span class="stack-icon">&#9883;</span>
+        <h4>React 18</h4>
+        <p>Админ-панель, Material UI</p>
+      </div>
+      <div class="stack-item">
+        <span class="stack-icon">&#128230;</span>
+        <h4>Docker</h4>
+        <p>Контейнеризация</p>
+      </div>
+      <div class="stack-item">
+        <span class="stack-icon">&#128259;</span>
+        <h4>WebSocket</h4>
+        <p>Реалтайм-доставка</p>
+      </div>
+      <div class="stack-item">
+        <span class="stack-icon">&#128272;</span>
+        <h4>AES-256</h4>
+        <p>Шифрование данных</p>
+      </div>
+      <div class="stack-item">
+        <span class="stack-icon">&#128737;</span>
+        <h4>nginx</h4>
+        <p>Reverse proxy, SSL</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- DEPLOY -->
+<section id="deploy">
+  <div class="container">
+    <div class="section-tag">Запуск</div>
+    <h2>Развёртывание за 5 минут</h2>
+    <p class="section-desc">Docker делает всю работу. Никаких ручных настроек серверов.</p>
+
+    <div class="deploy-steps">
+      <div class="deploy-step">
+        <div class="deploy-step-num">1</div>
+        <p>Настроить пароли и ключи в файле <code>.env</code></p>
+      </div>
+      <div class="deploy-step">
+        <div class="deploy-step-num">2</div>
+        <p>Запустить: <code>make up</code> &mdash; всё поднимается автоматически</p>
+      </div>
+      <div class="deploy-step">
+        <div class="deploy-step-num">3</div>
+        <p>Создать администратора: <code>make create-admin</code></p>
+      </div>
+      <div class="deploy-step">
+        <div class="deploy-step-num">4</div>
+        <p>Добавить <code>&lt;script&gt;</code> на сайт &mdash; виджет появится</p>
+      </div>
+      <div class="deploy-step">
+        <div class="deploy-step-num">5</div>
+        <p>Готово. Принимайте обращения.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FINAL -->
+<section>
+  <div class="container final">
+    <h2>Свой чат &mdash;<br><span class="highlight">своя ответственность</span></h2>
+    <p class="hero-sub">
+      Полный контроль над данными клиентов, нулевые ежемесячные платежи,
+      независимость от сторонних сервисов.
+    </p>
+
+    <div class="final-cards">
+      <div class="final-card">
+        <div class="final-card-icon">&#128176;</div>
+        <h3>Экономия</h3>
+        <p>Нет абонентской платы. Нет ограничений по количеству агентов и сессий.</p>
+      </div>
+      <div class="final-card">
+        <div class="final-card-icon">&#128274;</div>
+        <h3>Безопасность</h3>
+        <p>Данные на нашем сервере. 6 уровней защиты. Соответствие 152-ФЗ.</p>
+      </div>
+      <div class="final-card">
+        <div class="final-card-icon">&#128736;</div>
+        <h3>Контроль</h3>
+        <p>Исходный код наш. Любые доработки, интеграции, правки &mdash; в любой момент.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer>
+  ФиксИТ &copy; 2025 &mdash; Чат техподдержки &mdash; Собственная разработка
+</footer>
+
+</body>
+</html>

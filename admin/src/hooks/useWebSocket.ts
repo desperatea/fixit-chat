@@ -1,7 +1,9 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useSessionStore } from '../store/sessionStore';
 import { playMessageSound, playSessionSound } from './useSound';
 import type { Message, WSEvent } from '../types';
+
+const typingTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
 export function useWebSocket() {
   const wsRef = useRef<WebSocket | null>(null);
@@ -46,12 +48,12 @@ export function useWebSocket() {
     };
   }, []); // No dependencies — connect once on mount
 
-  function sendTyping(sessionId: string) {
+  const sendTyping = useCallback((sessionId: string) => {
     wsRef.current?.send(JSON.stringify({
       type: 'typing',
       data: { session_id: sessionId },
     }));
-  }
+  }, []);
 
   return { sendTyping };
 }
@@ -97,5 +99,15 @@ function handleEvent(event: WSEvent) {
       });
       store.fetchSessions();
       break;
+    case 'typing': {
+      const sid = data.session_id as string;
+      store.setTyping(sid);
+      if (typingTimers[sid]) clearTimeout(typingTimers[sid]);
+      typingTimers[sid] = setTimeout(() => {
+        store.clearTyping(sid);
+        delete typingTimers[sid];
+      }, 3000);
+      break;
+    }
   }
 }

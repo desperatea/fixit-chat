@@ -2,10 +2,11 @@ import { Close as CloseIcon, Send as SendIcon } from '@mui/icons-material';
 import {
   Box, Button, Chip, Divider, IconButton, Paper, TextField, Typography,
 } from '@mui/material';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 import { useSessionStore } from '../store/sessionStore';
+import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function ChatPage() {
   const { id } = useParams<{ id: string }>();
@@ -16,6 +17,23 @@ export default function ChatPage() {
   const [input, setInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { sendTyping } = useWebSocket();
+  const typingSessionIds = useSessionStore((s) => s.typingSessionIds);
+  const isVisitorTyping = id ? typingSessionIds.has(id) : false;
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setInput(e.target.value);
+    if (!id) return;
+    if (!typingTimer.current) {
+      sendTyping(id);
+    } else {
+      clearTimeout(typingTimer.current);
+    }
+    typingTimer.current = setTimeout(() => {
+      typingTimer.current = null;
+    }, 2000);
+  }, [id, sendTyping]);
 
   useEffect(() => {
     if (!id) return;
@@ -45,11 +63,16 @@ export default function ChatPage() {
     setNoteInput('');
   };
 
+  const formatPhone = (phone: string | null) => {
+    if (!phone) return 'Без телефона';
+    return phone.replace(/^\+7/, '8');
+  };
+
   if (!activeSession) return null;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header title={`${activeSession.visitor_name} — ${activeSession.visitor_phone || 'Без телефона'}`} />
+      <Header title={`${activeSession.visitor_name} — ${formatPhone(activeSession.visitor_phone)}`} />
 
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Chat area */}
@@ -104,6 +127,11 @@ export default function ChatPage() {
                 </Paper>
               </Box>
             ))}
+            {isVisitorTyping && (
+              <Typography variant="caption" color="text.secondary" sx={{ pl: 1, fontStyle: 'italic' }}>
+                Посетитель печатает...
+              </Typography>
+            )}
             <div ref={messagesEndRef} />
           </Box>
 
@@ -115,7 +143,7 @@ export default function ChatPage() {
                 size="small"
                 placeholder="Написать ответ..."
                 value={input}
-                onChange={(e) => setInput(e.target.value)}
+                onChange={handleInputChange}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
                 multiline
                 maxRows={4}

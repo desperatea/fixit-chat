@@ -9,6 +9,7 @@ interface SessionState {
   activeSession: Session | null;
   messages: Message[];
   notes: Note[];
+  typingSessionIds: Set<string>;
 
   fetchSessions: (params?: {
     status?: string;
@@ -25,6 +26,8 @@ interface SessionState {
   markRead: (sessionId: string, messageIds: string[]) => Promise<void>;
   addIncomingMessage: (msg: Message) => void;
   updateSessionInList: (session: Partial<Session> & { id: string }) => void;
+  setTyping: (sessionId: string) => void;
+  clearTyping: (sessionId: string) => void;
 }
 
 export const useSessionStore = create<SessionState>((set, get) => ({
@@ -34,6 +37,7 @@ export const useSessionStore = create<SessionState>((set, get) => ({
   activeSession: null,
   messages: [],
   notes: [],
+  typingSessionIds: new Set<string>(),
 
   fetchSessions: async (params) => {
     set({ loading: true });
@@ -90,6 +94,18 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     if (activeSession?.id === msg.session_id) {
       set({ messages: [...messages, msg] });
     }
+  },
+
+  setTyping: (sessionId) => {
+    const next = new Set(get().typingSessionIds);
+    next.add(sessionId);
+    set({ typingSessionIds: next });
+  },
+
+  clearTyping: (sessionId) => {
+    const next = new Set(get().typingSessionIds);
+    next.delete(sessionId);
+    set({ typingSessionIds: next });
   },
 
   updateSessionInList: (updated) => {

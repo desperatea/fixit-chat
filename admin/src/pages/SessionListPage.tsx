@@ -9,6 +9,11 @@ import { useNavigate } from 'react-router-dom';
 import Header from '../components/Layout/Header';
 import { useSessionStore } from '../store/sessionStore';
 
+function formatPhone(phone: string | null): string {
+  if (!phone) return '—';
+  return phone.replace(/^\+7/, '8');
+}
+
 export default function SessionListPage() {
   const { sessions, total, loading, fetchSessions } = useSessionStore();
   const [status, setStatus] = useState<string>('');
@@ -88,7 +93,7 @@ export default function SessionListPage() {
                       <Typography variant="caption" color="text.secondary">{s.visitor_org}</Typography>
                     )}
                   </TableCell>
-                  <TableCell>{s.visitor_phone || '—'}</TableCell>
+                  <TableCell>{formatPhone(s.visitor_phone)}</TableCell>
                   <TableCell sx={{ maxWidth: 250, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                     {s.initial_message}
                   </TableCell>
