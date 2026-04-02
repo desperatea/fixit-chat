@@ -61,12 +61,18 @@ async def update_session(
     service = SessionService(db)
     if data.status == "closed":
         session = await service.close_session(session_id)
-
-        # Notify visitor via WebSocket
         await manager.send_to_visitor(session_id, {
             "type": "session_closed",
             "data": {"session_id": str(session_id)},
         })
+    elif data.status == "open":
+        session = await service.reopen_session(session_id)
+        reopen_event = {
+            "type": "session_reopened",
+            "data": {"session_id": str(session_id)},
+        }
+        await manager.send_to_visitor(session_id, reopen_event)
+        await manager.send_to_agents(reopen_event)
     else:
         session = await service.get_session(session_id)
     return session
@@ -92,9 +98,17 @@ async def send_message(
     db: AsyncSession = Depends(get_db),
 ):
     msg_service = MessageService(db)
-    message = await msg_service.send_message(
-        session_id, data.content, "agent", sender_id=agent.id,
+    message, reopened = await msg_service.send_message(
+        session_id, data.content, "agent", sender_id=agent.id, allow_reopen=True,
     )
+
+    if reopened:
+        reopen_event = {
+            "type": "session_reopened",
+            "data": {"session_id": str(session_id)},
+        }
+        await manager.send_to_visitor(session_id, reopen_event)
+        await manager.send_to_agents(reopen_event)
 
     # Notify visitor via WebSocket
     await manager.send_to_visitor(session_id, {

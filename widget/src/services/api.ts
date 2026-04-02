@@ -30,6 +30,15 @@ export async function fetchSettings(): Promise<WidgetSettings> {
   return request<WidgetSettings>('/api/v1/widget/settings');
 }
 
+export async function getSessionInfo(
+  sessionId: string,
+  token: string,
+): Promise<{ status: string }> {
+  return request<{ status: string }>(`/api/v1/widget/sessions/${sessionId}`, {
+    headers: visitorHeaders(token),
+  });
+}
+
 export async function createSession(data: {
   visitor_name: string;
   visitor_phone?: string;

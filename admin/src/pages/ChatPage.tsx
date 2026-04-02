@@ -1,4 +1,4 @@
-import { Close as CloseIcon, Send as SendIcon } from '@mui/icons-material';
+import { Close as CloseIcon, Refresh as RefreshIcon, Send as SendIcon } from '@mui/icons-material';
 import {
   Box, Button, Chip, Divider, IconButton, Paper, TextField, Typography,
 } from '@mui/material';
@@ -12,7 +12,7 @@ export default function ChatPage() {
   const { id } = useParams<{ id: string }>();
   const {
     activeSession, messages, notes, fetchSession, fetchMessages, fetchNotes,
-    sendMessage, closeSession, addNote, markRead,
+    sendMessage, closeSession, reopenSession, addNote, markRead,
   } = useSessionStore();
   const [input, setInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
@@ -98,6 +98,17 @@ export default function ChatPage() {
                 Закрыть
               </Button>
             )}
+            {activeSession.status === 'closed' && (
+              <Button
+                size="small"
+                color="primary"
+                startIcon={<RefreshIcon />}
+                onClick={() => id && reopenSession(id)}
+                sx={{ ml: 'auto' }}
+              >
+                Переоткрыть
+              </Button>
+            )}
           </Box>
 
           {/* Messages */}
@@ -135,24 +146,22 @@ export default function ChatPage() {
             <div ref={messagesEndRef} />
           </Box>
 
-          {/* Input */}
-          {activeSession.status === 'open' && (
-            <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Написать ответ..."
-                value={input}
-                onChange={handleInputChange}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
-                multiline
-                maxRows={4}
-              />
-              <IconButton color="primary" onClick={handleSend} disabled={!input.trim()}>
-                <SendIcon />
-              </IconButton>
-            </Box>
-          )}
+          {/* Input — always visible, agent can write to closed sessions (auto-reopens) */}
+          <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
+            <TextField
+              fullWidth
+              size="small"
+              placeholder={activeSession.status === 'closed' ? 'Написать (переоткроет сессию)...' : 'Написать ответ...'}
+              value={input}
+              onChange={handleInputChange}
+              onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleSend(); } }}
+              multiline
+              maxRows={4}
+            />
+            <IconButton color="primary" onClick={handleSend} disabled={!input.trim()}>
+              <SendIcon />
+            </IconButton>
+          </Box>
         </Box>
 
         {/* Notes sidebar */}

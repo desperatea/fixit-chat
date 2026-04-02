@@ -55,10 +55,19 @@ async def agent_ws(ws: WebSocket):
 
                 async with async_session_factory() as db:
                     svc = MessageService(db)
-                    message = await svc.send_message(
-                        target_session_id, content, "agent", sender_id=agent_id,
+                    message, reopened = await svc.send_message(
+                        target_session_id, content, "agent",
+                        sender_id=agent_id, allow_reopen=True,
                     )
                     await db.commit()
+
+                if reopened:
+                    reopen_event = {
+                        "type": "session_reopened",
+                        "data": {"session_id": str(target_session_id)},
+                    }
+                    await manager.send_to_visitor(target_session_id, reopen_event)
+                    await manager.send_to_agents(reopen_event)
 
                 # Send to visitor
                 await manager.send_to_visitor(target_session_id, {

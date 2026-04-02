@@ -78,13 +78,21 @@ export class ChatWindow {
     const saved = getSession();
     if (saved) {
       try {
-        const messages = await api.getMessages(saved.sessionId, saved.visitorToken);
+        const sessionInfo = await api.getSessionInfo(saved.sessionId, saved.visitorToken);
         this.sessionId = saved.sessionId;
         this.visitorToken = saved.visitorToken;
+
+        const messages = await api.getMessages(saved.sessionId, saved.visitorToken).catch(() => []);
+
+        if (sessionInfo.status === 'closed') {
+          this.showChat(messages);
+          this.showClosed();
+          return;
+        }
+
         this.showChat(messages);
         return;
       } catch {
-        // Session expired, deleted, or invalid — silently clear and show form
         clearSession();
       }
     }
@@ -146,11 +154,48 @@ export class ChatWindow {
     this.state = 'closed';
     this.messageInput.setDisabled(true);
 
+    // Hide close button
+    const closeBar = this.bodyEl.querySelector('.fixit-close-bar');
+    if (closeBar) (closeBar as HTMLElement).style.display = 'none';
+
     const ratingForm = new RatingForm({
       primaryColor: this.settings.primary_color,
       onRate: (rating) => this.handleRate(rating),
     });
     this.bodyEl.appendChild(ratingForm.render());
+
+    // "New Chat" button
+    const newChatBtn = document.createElement('button');
+    newChatBtn.className = 'fixit-new-chat-btn';
+    newChatBtn.textContent = 'Начать новый чат';
+    newChatBtn.style.backgroundColor = this.settings.primary_color;
+    newChatBtn.addEventListener('click', () => this.handleNewChat());
+    this.bodyEl.appendChild(newChatBtn);
+  }
+
+  private handleNewChat(): void {
+    this.ws?.disconnect();
+    this.ws = null;
+    clearSession();
+    this.sessionId = null;
+    this.visitorToken = null;
+    this.showForm();
+  }
+
+  private onSessionReopened(): void {
+    if (this.state !== 'closed') return;
+    this.state = 'chat';
+    this.messageInput.setDisabled(false);
+
+    // Remove rating form and new-chat button
+    const rating = this.bodyEl.querySelector('.fixit-rating');
+    if (rating) rating.remove();
+    const newChatBtn = this.bodyEl.querySelector('.fixit-new-chat-btn');
+    if (newChatBtn) newChatBtn.remove();
+
+    // Restore close bar
+    const closeBar = this.bodyEl.querySelector('.fixit-close-bar');
+    if (closeBar) (closeBar as HTMLElement).style.display = '';
   }
 
   private async handleFormSubmit(data: Record<string, string>, form: PreChatForm): Promise<void> {
@@ -253,6 +298,9 @@ export class ChatWindow {
           break;
         case 'session_closed':
           this.showClosed();
+          break;
+        case 'session_reopened':
+          this.onSessionReopened();
           break;
       }
     });

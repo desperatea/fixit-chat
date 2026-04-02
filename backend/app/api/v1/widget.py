@@ -90,12 +90,10 @@ async def send_message(
     db: AsyncSession = Depends(get_db),
 ):
     session_service = SessionService(db)
-    session = await session_service.verify_visitor_access(session_id, x_visitor_token)
-    if session.status == "closed":
-        raise ForbiddenError("Сессия закрыта")
+    await session_service.verify_visitor_access(session_id, x_visitor_token)
 
     msg_service = MessageService(db)
-    message = await msg_service.send_message(session_id, data.content, "visitor")
+    message, _ = await msg_service.send_message(session_id, data.content, "visitor")
 
     # Notify agents via WebSocket
     await manager.send_to_agents({

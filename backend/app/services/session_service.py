@@ -132,6 +132,17 @@ class SessionService:
         await self.db.refresh(session)
         return self._decrypt_and_detach(session)
 
+    async def reopen_session(self, session_id: uuid.UUID) -> ChatSession:
+        session = await self.session_repo.get_by_id(session_id)
+        if not session:
+            raise NotFoundError("Сессия не найдена")
+        if session.status == "open":
+            raise BadRequestError("Сессия уже открыта")
+
+        await self.session_repo.update(session, status="open", closed_at=None)
+        await self.db.refresh(session)
+        return self._decrypt_and_detach(session)
+
     async def rate_session(self, session_id: uuid.UUID, rating: int) -> ChatSession:
         session = await self.session_repo.get_by_id(session_id)
         if not session:

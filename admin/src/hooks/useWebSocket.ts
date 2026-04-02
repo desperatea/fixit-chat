@@ -121,6 +121,13 @@ function handleEvent(event: WSEvent) {
       });
       store.fetchSessions();
       break;
+    case 'session_reopened':
+      store.updateSessionInList({
+        id: data.session_id as string,
+        status: 'open',
+      });
+      store.fetchSessions();
+      break;
     case 'typing': {
       const sid = data.session_id as string;
       store.setTyping(sid);

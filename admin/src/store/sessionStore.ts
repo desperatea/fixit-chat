@@ -21,6 +21,7 @@ interface SessionState {
   fetchMessages: (sessionId: string) => Promise<void>;
   sendMessage: (sessionId: string, content: string) => Promise<void>;
   closeSession: (id: string) => Promise<void>;
+  reopenSession: (id: string) => Promise<void>;
   fetchNotes: (sessionId: string) => Promise<void>;
   addNote: (sessionId: string, content: string) => Promise<void>;
   markRead: (sessionId: string, messageIds: string[]) => Promise<void>;
@@ -66,6 +67,12 @@ export const useSessionStore = create<SessionState>((set, get) => ({
 
   closeSession: async (id) => {
     const session = await sessionsApi.closeSession(id);
+    set({ activeSession: session });
+    get().updateSessionInList(session);
+  },
+
+  reopenSession: async (id) => {
+    const session = await sessionsApi.reopenSession(id);
     set({ activeSession: session });
     get().updateSessionInList(session);
   },

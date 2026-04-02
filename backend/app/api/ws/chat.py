@@ -57,7 +57,11 @@ async def visitor_ws(
 
                 async with async_session_factory() as db:
                     svc = MessageService(db)
-                    message = await svc.send_message(session_id, content, "visitor")
+                    try:
+                        message, _ = await svc.send_message(session_id, content, "visitor")
+                    except Exception as e:
+                        await ws.send_json({"type": "error", "data": {"message": str(e.detail if hasattr(e, 'detail') else e)}})
+                        continue
                     await db.commit()
 
                 event = {

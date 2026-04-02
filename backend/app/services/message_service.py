@@ -3,7 +3,7 @@ import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import make_transient
 
-from app.core.exceptions import NotFoundError
+from app.core.exceptions import ForbiddenError, NotFoundError
 from app.repositories.message_repo import MessageRepository
 from app.repositories.session_repo import SessionRepository
 from app.services.encryption_service import EncryptionService
@@ -22,10 +22,26 @@ class MessageService:
         content: str,
         sender_type: str,
         sender_id: uuid.UUID | None = None,
-    ):
+        *,
+        allow_reopen: bool = False,
+    ) -> tuple:
+        """Send a message. Returns (message, reopened: bool).
+
+        If session is closed:
+        - allow_reopen=True + sender_type="agent" → auto-reopen session
+        - otherwise → ForbiddenError
+        """
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise NotFoundError("Сессия не найдена")
+
+        reopened = False
+        if session.status == "closed":
+            if allow_reopen and sender_type == "agent":
+                await self.session_repo.update(session, status="open", closed_at=None)
+                reopened = True
+            else:
+                raise ForbiddenError("Сессия закрыта")
 
         encrypted_content = self.encryption.encrypt_message_content(content)
 
@@ -42,7 +58,7 @@ class MessageService:
         self.db.expunge(message)
         make_transient(message)
         message.content = content
-        return message
+        return message, reopened
 
     async def get_messages(
         self,

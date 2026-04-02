@@ -441,6 +441,25 @@
   font-size: 15px;
 }
 
+/* === New Chat Button === */
+.fixit-new-chat-btn {
+  display: block;
+  width: calc(100% - 32px);
+  margin: 8px 16px 16px;
+  padding: 12px;
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.fixit-new-chat-btn:hover {
+  opacity: 0.9;
+}
+
 /* === Mobile === */
 @media (max-width: 480px) {
   .fixit-window {
