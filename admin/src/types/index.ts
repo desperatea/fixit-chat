@@ -80,6 +80,7 @@ export interface WidgetSettings {
   header_title: string;
   welcome_message: string;
   logo_url: string | null;
+  close_message: string;
   auto_close_minutes: number;
   telegram_bot_token: string | null;
   telegram_chat_id: string | null;

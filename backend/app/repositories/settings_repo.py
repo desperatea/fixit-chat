@@ -27,4 +27,5 @@ class SettingsRepository:
             if hasattr(settings, key):
                 setattr(settings, key, value)
         await self.session.flush()
+        await self.session.refresh(settings)
         return settings

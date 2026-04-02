@@ -17,6 +17,9 @@ class WidgetSettings(Base):
         Text, default="Здравствуйте! Опишите вашу проблему...", nullable=False
     )
     logo_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    close_message: Mapped[str] = mapped_column(
+        Text, default="Сессия завершена. Спасибо за обращение!", nullable=False
+    )
     auto_close_minutes: Mapped[int] = mapped_column(Integer, default=1440, nullable=False)
     telegram_bot_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     telegram_chat_id: Mapped[str | None] = mapped_column(String(50), nullable=True)

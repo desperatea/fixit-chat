@@ -10,6 +10,7 @@ from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.models.session import ChatSession
 from app.repositories.message_repo import MessageRepository
 from app.repositories.session_repo import SessionRepository
+from app.repositories.settings_repo import SettingsRepository
 from app.schemas.session import SessionCreate
 from app.services.encryption_service import EncryptionService
 
@@ -125,6 +126,19 @@ class SessionService:
             raise NotFoundError("Сессия не найдена")
         if session.status == "closed":
             raise BadRequestError("Сессия уже закрыта")
+
+        # Get close message from settings
+        settings_repo = SettingsRepository(self.db)
+        settings = await settings_repo.get()
+        close_text = settings.close_message or "Сессия завершена."
+
+        # Add system message
+        encrypted = self.encryption.encrypt_message_content(close_text)
+        await self.message_repo.create(
+            session_id=session_id,
+            sender_type="system",
+            content=encrypted,
+        )
 
         await self.session_repo.update(
             session, status="closed", closed_at=datetime.now(timezone.utc),

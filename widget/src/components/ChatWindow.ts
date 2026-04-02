@@ -86,7 +86,7 @@ export class ChatWindow {
 
         if (sessionInfo.status === 'closed') {
           this.showChat(messages);
-          this.showClosed();
+          this.showClosed(!!(sessionInfo as Record<string, unknown>).rating);
           return;
         }
 
@@ -133,7 +133,10 @@ export class ChatWindow {
     closeBar.appendChild(closeBtn);
     this.bodyEl.appendChild(closeBar);
 
-    this.bodyEl.appendChild(this.messageInput.render());
+    const inputEl = this.messageInput.render();
+    inputEl.style.display = '';
+    this.messageInput.setDisabled(false);
+    this.bodyEl.appendChild(inputEl);
 
     if (messages.length > 0) {
       this.messageList.setMessages(messages);
@@ -150,19 +153,22 @@ export class ChatWindow {
     }
   }
 
-  private showClosed(): void {
+  private showClosed(alreadyRated = false): void {
     this.state = 'closed';
-    this.messageInput.setDisabled(true);
 
-    // Hide close button
+    // Hide input, close button
+    const inputEl = this.messageInput.render();
+    if (inputEl.parentElement) inputEl.style.display = 'none';
     const closeBar = this.bodyEl.querySelector('.fixit-close-bar');
     if (closeBar) (closeBar as HTMLElement).style.display = 'none';
 
-    const ratingForm = new RatingForm({
-      primaryColor: this.settings.primary_color,
-      onRate: (rating) => this.handleRate(rating),
-    });
-    this.bodyEl.appendChild(ratingForm.render());
+    if (!alreadyRated) {
+      const ratingForm = new RatingForm({
+        primaryColor: this.settings.primary_color,
+        onRate: (rating) => this.handleRate(rating),
+      });
+      this.bodyEl.appendChild(ratingForm.render());
+    }
 
     // "New Chat" button
     const newChatBtn = document.createElement('button');
@@ -185,6 +191,10 @@ export class ChatWindow {
   private onSessionReopened(): void {
     if (this.state !== 'closed') return;
     this.state = 'chat';
+
+    // Show input back
+    const inputEl = this.messageInput.render();
+    inputEl.style.display = '';
     this.messageInput.setDisabled(false);
 
     // Remove rating form and new-chat button

@@ -19,6 +19,7 @@ class WidgetSettingsResponse(BaseModel):
 class WidgetSettingsAdminResponse(WidgetSettingsResponse):
     """Full settings visible to admin."""
 
+    close_message: str
     auto_close_minutes: int
     telegram_bot_token: str | None
     telegram_chat_id: str | None
@@ -33,6 +34,7 @@ class WidgetSettingsUpdate(BaseModel):
     header_title: str | None = Field(None, max_length=100)
     welcome_message: str | None = None
     logo_url: str | None = None
+    close_message: str | None = None
     auto_close_minutes: int | None = Field(None, ge=5)
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None

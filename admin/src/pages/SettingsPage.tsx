@@ -51,6 +51,12 @@ export default function SettingsPage() {
                   onChange={(e) => set('welcome_message', e.target.value)}
                 />
                 <TextField
+                  fullWidth label="Сообщение при закрытии чата" margin="normal" multiline rows={2}
+                  value={(form.close_message as string) || ''}
+                  onChange={(e) => set('close_message', e.target.value)}
+                  helperText="Системное сообщение, которое увидит посетитель при закрытии сессии"
+                />
+                <TextField
                   fullWidth label="URL логотипа" margin="normal"
                   value={(form.logo_url as string) || ''}
                   onChange={(e) => set('logo_url', e.target.value)}
