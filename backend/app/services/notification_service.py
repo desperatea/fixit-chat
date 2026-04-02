@@ -1,3 +1,5 @@
+import html
+
 import structlog
 from httpx import AsyncClient
 
@@ -14,10 +16,12 @@ class NotificationService:
         if not settings.telegram_bot_token or not settings.telegram_chat_id:
             return
 
+        safe_name = html.escape(visitor_name)
+        safe_message = html.escape(message[:200])
         text = (
             f"💬 Новое обращение в чат\n\n"
-            f"👤 {visitor_name}\n"
-            f"📝 {message[:200]}"
+            f"👤 {safe_name}\n"
+            f"📝 {safe_message}"
         )
 
         try:
@@ -40,7 +44,8 @@ class NotificationService:
             return
 
         stars = "⭐" * rating
-        text = f"📊 Оценка сессии: {stars}\n👤 {visitor_name}"
+        safe_name = html.escape(visitor_name)
+        text = f"📊 Оценка сессии: {stars}\n👤 {safe_name}"
 
         try:
             async with AsyncClient() as client:

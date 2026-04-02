@@ -2,8 +2,7 @@ import uuid
 from collections.abc import AsyncGenerator
 
 import redis.asyncio as redis
-from fastapi import Cookie, Depends, Header
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from fastapi import Cookie, Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
@@ -12,8 +11,6 @@ from app.core.redis import get_redis
 from app.core.security import decode_token
 from app.models.agent import Agent
 from app.repositories.agent_repo import AgentRepository
-
-security_scheme = HTTPBearer()
 
 
 async def get_session(db: AsyncSession = Depends(get_db)) -> AsyncGenerator[AsyncSession, None]:
@@ -25,10 +22,14 @@ async def get_redis_client() -> redis.Redis:
 
 
 async def get_current_agent(
-    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
+    request: Request,
     db: AsyncSession = Depends(get_db),
 ) -> Agent:
-    token = credentials.credentials
+    # Get access token from httpOnly cookie
+    token = request.cookies.get("access_token")
+    if not token:
+        raise UnauthorizedError("Не авторизован")
+
     payload = decode_token(token)
 
     if payload is None or payload.get("type") != "access":

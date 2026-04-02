@@ -1,5 +1,6 @@
 import { create } from 'zustand';
-import { login as apiLogin, logout as apiLogout } from '../api/auth';
+import { login as apiLogin, logout as apiLogout, checkAuth as apiCheckAuth } from '../api/auth';
+import { disconnectWebSocket } from '../hooks/useWebSocket';
 
 interface AuthState {
   isAuthenticated: boolean;
@@ -7,19 +8,18 @@ interface AuthState {
   error: string | null;
   login: (username: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
-  checkAuth: () => void;
+  checkAuth: () => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-  isAuthenticated: !!sessionStorage.getItem('access_token'),
-  loading: false,
+  isAuthenticated: false,
+  loading: true,
   error: null,
 
   login: async (username, password) => {
     set({ loading: true, error: null });
     try {
-      const token = await apiLogin(username, password);
-      sessionStorage.setItem('access_token', token);
+      await apiLogin(username, password);
       set({ isAuthenticated: true, loading: false });
     } catch (err) {
       const message = (err as { response?: { data?: { detail?: string } } })
@@ -29,11 +29,13 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 
   logout: async () => {
+    disconnectWebSocket();
     await apiLogout();
-    set({ isAuthenticated: false });
+    set({ isAuthenticated: false, loading: false });
   },
 
-  checkAuth: () => {
-    set({ isAuthenticated: !!sessionStorage.getItem('access_token') });
+  checkAuth: async () => {
+    const ok = await apiCheckAuth();
+    set({ isAuthenticated: ok, loading: false });
   },
 }));

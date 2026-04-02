@@ -6,16 +6,23 @@ import { useAuthStore } from '../store/authStore';
 export default function LoginPage() {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
-  const { login, loading, error } = useAuthStore();
+  const { login, loading, error, isAuthenticated } = useAuthStore();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await login(username, password);
-    if (sessionStorage.getItem('access_token')) {
+    // Zustand store updates isAuthenticated — check via getState()
+    if (useAuthStore.getState().isAuthenticated) {
       navigate('/admin');
     }
   };
+
+  // Already logged in (e.g., navigated back to /login)
+  if (isAuthenticated) {
+    navigate('/admin');
+    return null;
+  }
 
   return (
     <Container maxWidth="xs">

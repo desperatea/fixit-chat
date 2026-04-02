@@ -10,6 +10,18 @@ logger = structlog.get_logger()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Load CORS origins from DB and reconfigure if needed
+    from app.core.database import async_session_factory
+    from app.repositories.settings_repo import SettingsRepository
+    try:
+        async with async_session_factory() as db:
+            repo = SettingsRepository(db)
+            settings = await repo.get()
+            origins = settings.allowed_origins or []
+            if origins and "*" not in origins:
+                logger.info("cors_origins_loaded", origins=origins)
+    except Exception:
+        pass
     logger.info("fixit_chat_starting")
     yield
     await engine.dispose()

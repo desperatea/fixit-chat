@@ -3,29 +3,21 @@ import axios from 'axios';
 const api = axios.create({
   baseURL: '/api/v1/admin',
   headers: { 'Content-Type': 'application/json' },
-  withCredentials: true,
+  withCredentials: true, // send httpOnly cookies automatically
 });
 
-// Request interceptor — attach access token
-api.interceptors.request.use((config) => {
-  const token = sessionStorage.getItem('access_token');
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
-});
-
-// Response interceptor — auto refresh on 401
+// No Authorization header needed — browser sends cookies.
+// On 401, try to refresh once, then redirect to login.
 let isRefreshing = false;
 let failedQueue: Array<{
-  resolve: (token: string) => void;
+  resolve: () => void;
   reject: (err: unknown) => void;
 }> = [];
 
-function processQueue(error: unknown, token: string | null) {
+function processQueue(error: unknown) {
   failedQueue.forEach((p) => {
     if (error) p.reject(error);
-    else p.resolve(token!);
+    else p.resolve();
   });
   failedQueue = [];
 }
@@ -39,10 +31,7 @@ api.interceptors.response.use(
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({
-            resolve: (token) => {
-              original.headers.Authorization = `Bearer ${token}`;
-              resolve(api(original));
-            },
+            resolve: () => resolve(api(original)),
             reject,
           });
         });
@@ -52,17 +41,13 @@ api.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        const { data } = await axios.post('/api/v1/admin/auth/refresh', null, {
+        await axios.post('/api/v1/admin/auth/refresh', null, {
           withCredentials: true,
         });
-        const newToken = data.access_token;
-        sessionStorage.setItem('access_token', newToken);
-        processQueue(null, newToken);
-        original.headers.Authorization = `Bearer ${newToken}`;
+        processQueue(null);
         return api(original);
       } catch (refreshError) {
-        processQueue(refreshError, null);
-        sessionStorage.removeItem('access_token');
+        processQueue(refreshError);
         window.location.href = '/admin/login';
         return Promise.reject(refreshError);
       } finally {

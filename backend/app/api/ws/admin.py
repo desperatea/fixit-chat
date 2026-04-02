@@ -1,7 +1,7 @@
 import uuid
 
 import structlog
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.api.ws.manager import manager
 from app.core.database import async_session_factory
@@ -15,11 +15,13 @@ router = APIRouter()
 
 
 @router.websocket("/ws/admin")
-async def agent_ws(
-    ws: WebSocket,
-    token: str = Query(...),
-):
-    # Verify JWT
+async def agent_ws(ws: WebSocket):
+    # Get access token from cookie
+    token = ws.cookies.get("access_token")
+    if not token:
+        await ws.close(code=4401, reason="Unauthorized")
+        return
+
     payload = decode_token(token)
     if not payload or payload.get("type") != "access":
         await ws.close(code=4401, reason="Unauthorized")

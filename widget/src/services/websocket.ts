@@ -2,17 +2,24 @@ import type { WSEvent } from '../types';
 
 type EventHandler = (event: WSEvent) => void;
 
+interface AuthMessage {
+  type: string;
+  data: Record<string, unknown>;
+}
+
 export class WebSocketClient {
   private ws: WebSocket | null = null;
   private url: string;
+  private authMessage: AuthMessage | null;
   private handlers: EventHandler[] = [];
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private closed = false;
 
-  constructor(url: string) {
+  constructor(url: string, authMessage?: AuthMessage) {
     this.url = url;
+    this.authMessage = authMessage || null;
   }
 
   connect(): void {
@@ -28,11 +35,17 @@ export class WebSocketClient {
 
     this.ws.onopen = () => {
       this.reconnectAttempts = 0;
+      // Send auth as first message if provided
+      if (this.authMessage && this.ws) {
+        this.ws.send(JSON.stringify(this.authMessage));
+      }
     };
 
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data) as WSEvent;
+        // Skip auth_ok / error responses from handshake
+        if (data.type === 'auth_ok') return;
         this.handlers.forEach((h) => h(data));
       } catch {
         // ignore invalid messages

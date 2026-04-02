@@ -1,7 +1,7 @@
 import uuid
 
 import structlog
-from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.api.ws.manager import manager
 from app.core.database import async_session_factory
@@ -17,17 +17,33 @@ router = APIRouter()
 async def visitor_ws(
     ws: WebSocket,
     session_id: uuid.UUID,
-    token: str = Query(...),
 ):
+    await ws.accept()
+
+    # First message must be auth: {"type": "auth", "data": {"token": "..."}}
+    try:
+        first_msg = await ws.receive_json()
+        if first_msg.get("type") != "auth":
+            await ws.close(code=4401, reason="First message must be auth")
+            return
+        token = first_msg.get("data", {}).get("token", "")
+    except Exception:
+        await ws.close(code=4400, reason="Invalid auth message")
+        return
+
     # Verify visitor token
     async with async_session_factory() as db:
         repo = SessionRepository(db)
         session = await repo.get_by_visitor_token(token)
         if not session or session.id != session_id:
+            await ws.send_json({"type": "error", "data": {"message": "Forbidden"}})
             await ws.close(code=4403, reason="Forbidden")
             return
 
-    await manager.connect_visitor(session_id, ws)
+    # Auth OK — register connection
+    manager.visitor_connections[session_id] = ws
+    logger.info("ws_visitor_connected", session_id=str(session_id))
+    await ws.send_json({"type": "auth_ok", "data": {}})
 
     try:
         while True:
@@ -36,7 +52,7 @@ async def visitor_ws(
 
             if msg_type == "message":
                 content = data.get("data", {}).get("content", "").strip()
-                if not content:
+                if not content or len(content) > 5000:
                     continue
 
                 async with async_session_factory() as db:
@@ -66,11 +82,13 @@ async def visitor_ws(
             elif msg_type == "read":
                 message_ids = data.get("data", {}).get("message_ids", [])
                 if message_ids:
+                    try:
+                        parsed_ids = [uuid.UUID(mid) for mid in message_ids[:500]]
+                    except ValueError:
+                        continue
                     async with async_session_factory() as db:
                         svc = MessageService(db)
-                        await svc.mark_as_read(
-                            session_id, [uuid.UUID(mid) for mid in message_ids],
-                        )
+                        await svc.mark_as_read(session_id, parsed_ids)
                         await db.commit()
 
     except WebSocketDisconnect:

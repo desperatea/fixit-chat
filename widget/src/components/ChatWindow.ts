@@ -29,14 +29,21 @@ export class ChatWindow {
     this.el.className = 'fixit-window';
     this.el.style.display = 'none';
 
-    // Header
+    // Header (built with DOM API to prevent XSS)
     const header = document.createElement('div');
     header.className = 'fixit-header';
     header.style.backgroundColor = settings.primary_color;
-    header.innerHTML = `
-      ${settings.logo_url ? `<img class="fixit-header-logo" src="${settings.logo_url}" alt="" />` : ''}
-      <span class="fixit-header-title">${settings.header_title}</span>
-    `;
+    if (settings.logo_url) {
+      const logo = document.createElement('img');
+      logo.className = 'fixit-header-logo';
+      logo.src = settings.logo_url;
+      logo.alt = '';
+      header.appendChild(logo);
+    }
+    const title = document.createElement('span');
+    title.className = 'fixit-header-title';
+    title.textContent = settings.header_title;
+    header.appendChild(title);
     this.el.appendChild(header);
 
     // Body
@@ -162,9 +169,18 @@ export class ChatWindow {
       this.visitorToken = session.visitor_token;
       saveSession(session.id, session.visitor_token);
 
-      // Messages fetch is non-critical — session is already created
-      const messages = await api.getMessages(session.id, session.visitor_token).catch(() => []);
-      this.showChat(messages);
+      // Show chat immediately with the initial message
+      const initialMsg: Message = {
+        id: 'initial',
+        session_id: session.id,
+        sender_type: 'visitor',
+        sender_id: null,
+        content: data.initial_message || '',
+        is_read: false,
+        created_at: session.created_at,
+        attachments: [],
+      };
+      this.showChat([initialMsg]);
     } catch (err) {
       form.setLoading(false);
       form.showError(err instanceof Error ? err.message : 'Ошибка создания сессии');
@@ -218,8 +234,12 @@ export class ChatWindow {
   private connectWebSocket(): void {
     if (!this.sessionId || !this.visitorToken) return;
 
-    const url = `${this.wsUrl}/ws/chat/${this.sessionId}?token=${this.visitorToken}`;
-    this.ws = new WebSocketClient(url);
+    // Token sent in first message, NOT in URL (security)
+    const url = `${this.wsUrl}/ws/chat/${this.sessionId}`;
+    this.ws = new WebSocketClient(url, {
+      type: 'auth',
+      data: { token: this.visitorToken },
+    });
 
     this.ws.on((event: WSEvent) => {
       switch (event.type) {

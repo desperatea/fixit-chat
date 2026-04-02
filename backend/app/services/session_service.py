@@ -1,3 +1,4 @@
+import hmac
 import uuid
 from datetime import datetime, timezone
 
@@ -84,7 +85,7 @@ class SessionService:
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise NotFoundError("Сессия не найдена")
-        if session.visitor_token != visitor_token:
+        if not hmac.compare_digest(session.visitor_token, visitor_token):
             raise ForbiddenError("Нет доступа к этой сессии")
         return self._decrypt_and_detach(session)
 
@@ -96,8 +97,24 @@ class SessionService:
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[ChatSession], int]:
+        if search:
+            # Search requires decryption — load all, decrypt, filter in Python
+            all_sessions = await self.session_repo.get_all_for_search(status=status)
+            self._decrypt_and_detach_list(all_sessions)
+
+            query = search.lower()
+            filtered = [
+                s for s in all_sessions
+                if query in (s.visitor_name or "").lower()
+                or query in (s.visitor_phone or "").lower()
+                or query in (s.visitor_org or "").lower()
+            ]
+            total = len(filtered)
+            page = filtered[offset:offset + limit]
+            return page, total
+
         sessions, total = await self.session_repo.get_list(
-            status=status, search=search, offset=offset, limit=limit,
+            status=status, offset=offset, limit=limit,
         )
         self._decrypt_and_detach_list(sessions)
         return sessions, total

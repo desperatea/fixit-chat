@@ -35,23 +35,16 @@ class SessionRepository(SoftDeleteRepository[ChatSession]):
         self,
         *,
         status: str | None = None,
-        search: str | None = None,
         offset: int = 0,
         limit: int = 50,
     ) -> tuple[list[ChatSession], int]:
-        """Return paginated sessions with total count."""
+        """Return paginated sessions with total count (without search — search is on encrypted fields)."""
         base = select(ChatSession).where(ChatSession.deleted_at.is_(None))
         count_stmt = select(func.count()).select_from(ChatSession).where(ChatSession.deleted_at.is_(None))
 
         if status:
             base = base.where(ChatSession.status == status)
             count_stmt = count_stmt.where(ChatSession.status == status)
-
-        if search:
-            pattern = f"%{search}%"
-            search_filter = ChatSession.visitor_name.ilike(pattern)
-            base = base.where(search_filter)
-            count_stmt = count_stmt.where(search_filter)
 
         total = (await self.session.execute(count_stmt)).scalar_one()
 
@@ -60,6 +53,20 @@ class SessionRepository(SoftDeleteRepository[ChatSession]):
         sessions = list(result.scalars().all())
 
         return sessions, total
+
+    async def get_all_for_search(
+        self,
+        *,
+        status: str | None = None,
+        max_rows: int = 1000,
+    ) -> list[ChatSession]:
+        """Load sessions for in-memory search (fields are encrypted in DB)."""
+        stmt = select(ChatSession).where(ChatSession.deleted_at.is_(None))
+        if status:
+            stmt = stmt.where(ChatSession.status == status)
+        stmt = stmt.order_by(ChatSession.created_at.desc()).limit(max_rows)
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
 
     async def get_open_inactive_since(self, since: datetime) -> list[ChatSession]:
         """Get open sessions with no messages after `since`."""

@@ -1,65 +1,87 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useCallback } from 'react';
 import { useSessionStore } from '../store/sessionStore';
 import { playMessageSound, playSessionSound } from './useSound';
 import type { Message, WSEvent } from '../types';
 
 const typingTimers: Record<string, ReturnType<typeof setTimeout>> = {};
 
+// Singleton WebSocket — shared across all components
+let ws: WebSocket | null = null;
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+let reconnectAttempts = 0;
+
+function connect() {
+  if (ws?.readyState === WebSocket.OPEN || ws?.readyState === WebSocket.CONNECTING) return;
+
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url = `${protocol}//${window.location.host}/ws/admin`;
+
+  ws = new WebSocket(url);
+
+  ws.onopen = () => {
+    reconnectAttempts = 0;
+  };
+
+  ws.onmessage = (e) => {
+    try {
+      const event: WSEvent = JSON.parse(e.data);
+      handleEvent(event);
+    } catch {
+      // ignore
+    }
+  };
+
+  ws.onclose = () => {
+    ws = null;
+    // Auto-reconnect with backoff
+    const delay = Math.min(2000 * 2 ** reconnectAttempts, 30000);
+    reconnectAttempts++;
+    reconnectTimer = setTimeout(() => {
+      connect();
+    }, delay);
+  };
+
+  ws.onerror = () => {
+    ws?.close();
+  };
+}
+
+function disconnect() {
+  if (reconnectTimer) {
+    clearTimeout(reconnectTimer);
+    reconnectTimer = null;
+  }
+  reconnectAttempts = 0;
+  ws?.close();
+  ws = null;
+}
+
 export function useWebSocket() {
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-
   useEffect(() => {
-    const token = sessionStorage.getItem('access_token');
-    if (!token) return;
-
-    if (wsRef.current?.readyState === WebSocket.OPEN) return;
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const url = `${protocol}//${window.location.host}/ws/admin?token=${token}`;
-
-    const ws = new WebSocket(url);
-    wsRef.current = ws;
-
-    ws.onmessage = (e) => {
-      try {
-        const event: WSEvent = JSON.parse(e.data);
-        handleEvent(event);
-      } catch {
-        // ignore
-      }
-    };
-
-    ws.onclose = () => {
-      wsRef.current = null;
-      reconnectTimer.current = setTimeout(() => {
-        // Re-mount will reconnect
-      }, 3000);
-    };
-
-    ws.onerror = () => {
-      ws.close();
-    };
-
+    connect();
     return () => {
-      if (reconnectTimer.current) clearTimeout(reconnectTimer.current);
-      ws.close();
-      wsRef.current = null;
+      // Don't disconnect on unmount — singleton persists across route changes
     };
-  }, []); // No dependencies — connect once on mount
+  }, []);
 
   const sendTyping = useCallback((sessionId: string) => {
-    wsRef.current?.send(JSON.stringify({
-      type: 'typing',
-      data: { session_id: sessionId },
-    }));
+    if (ws?.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'typing',
+        data: { session_id: sessionId },
+      }));
+    }
   }, []);
 
   return { sendTyping };
 }
 
+// Call on logout to clean up
+export function disconnectWebSocket() {
+  disconnect();
+}
+
 function handleEvent(event: WSEvent) {
-  // Access store directly via getState() — no reactive dependencies
   const store = useSessionStore.getState();
   const data = event.data;
 

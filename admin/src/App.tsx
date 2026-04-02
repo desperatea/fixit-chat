@@ -1,4 +1,5 @@
-import { Box } from '@mui/material';
+import { Box, CircularProgress } from '@mui/material';
+import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import Sidebar from './components/Layout/Sidebar';
 import { useWebSocket } from './hooks/useWebSocket';
@@ -11,8 +12,16 @@ import SessionListPage from './pages/SessionListPage';
 import SettingsPage from './pages/SettingsPage';
 
 function ProtectedLayout({ children }: { children: React.ReactNode }) {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const { isAuthenticated, loading } = useAuthStore();
   useWebSocket();
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   if (!isAuthenticated) return <Navigate to="/admin/login" replace />;
 
@@ -27,6 +36,12 @@ function ProtectedLayout({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  const checkAuth = useAuthStore((s) => s.checkAuth);
+
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
   return (
     <Routes>
       <Route path="/admin/login" element={<LoginPage />} />
