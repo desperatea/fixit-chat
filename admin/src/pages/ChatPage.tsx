@@ -111,33 +111,79 @@ export default function ChatPage() {
             )}
           </Box>
 
-          {/* Messages */}
+          {/* Messages + inline ratings */}
           <Box sx={{ flex: 1, overflow: 'auto', p: 2, display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {messages.map((msg) => (
-              <Box
-                key={msg.id}
-                sx={{
-                  alignSelf: msg.sender_type === 'visitor' ? 'flex-start' : 'flex-end',
-                  maxWidth: '70%',
-                }}
-              >
-                <Paper
-                  sx={{
-                    p: 1.5,
-                    bgcolor: msg.sender_type === 'visitor' ? 'grey.100' : 'primary.main',
-                    color: msg.sender_type === 'visitor' ? 'text.primary' : 'white',
-                    borderRadius: 2,
-                  }}
-                >
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                    {msg.content}
-                  </Typography>
-                  <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', textAlign: 'right', mt: 0.5 }}>
-                    {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
-                  </Typography>
-                </Paper>
-              </Box>
-            ))}
+            {(() => {
+              // Merge messages and ratings into a single timeline
+              const ratingItems = (activeSession.ratings || []).map((r) => ({
+                type: 'rating' as const,
+                id: `rating-${r.id}`,
+                created_at: r.created_at,
+                rating: r.rating,
+              }));
+              const msgItems = messages.map((m) => ({
+                type: 'message' as const,
+                id: m.id,
+                created_at: m.created_at,
+                msg: m,
+              }));
+              const timeline = [...msgItems, ...ratingItems].sort(
+                (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+              );
+
+              return timeline.map((item) => {
+                if (item.type === 'rating') {
+                  return (
+                    <Box key={item.id} sx={{ alignSelf: 'center', my: 0.5 }}>
+                      <Chip
+                        label={`Оценка: ${'★'.repeat(item.rating)}${'☆'.repeat(5 - item.rating)}`}
+                        size="small"
+                        color={item.rating >= 4 ? 'success' : item.rating >= 3 ? 'warning' : 'error'}
+                        variant="outlined"
+                        sx={{ fontSize: '0.75rem' }}
+                      />
+                    </Box>
+                  );
+                }
+                const msg = item.msg;
+                if (msg.sender_type === 'system') {
+                  return (
+                    <Box key={msg.id} sx={{ alignSelf: 'center', my: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                        {msg.content}
+                        {' — '}
+                        {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                      </Typography>
+                    </Box>
+                  );
+                }
+                return (
+                  <Box
+                    key={msg.id}
+                    sx={{
+                      alignSelf: msg.sender_type === 'visitor' ? 'flex-start' : 'flex-end',
+                      maxWidth: '70%',
+                    }}
+                  >
+                    <Paper
+                      sx={{
+                        p: 1.5,
+                        bgcolor: msg.sender_type === 'visitor' ? 'grey.100' : 'primary.main',
+                        color: msg.sender_type === 'visitor' ? 'text.primary' : 'white',
+                        borderRadius: 2,
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                        {msg.content}
+                      </Typography>
+                      <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', textAlign: 'right', mt: 0.5 }}>
+                        {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
+                      </Typography>
+                    </Paper>
+                  </Box>
+                );
+              });
+            })()}
             {isVisitorTyping && (
               <Typography variant="caption" color="text.secondary" sx={{ pl: 1, fontStyle: 'italic' }}>
                 Посетитель печатает...
