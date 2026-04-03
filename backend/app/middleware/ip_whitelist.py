@@ -43,6 +43,10 @@ class IPWhitelistMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next):
         path = request.url.path
 
+        # Skip WebSocket — BaseHTTPMiddleware doesn't support them
+        if request.scope.get("type") == "websocket" or request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+
         if not any(path.startswith(prefix) for prefix in PROTECTED_PREFIXES):
             return await call_next(request)
 

@@ -14,6 +14,10 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
     """Rate limiting via Redis sliding window."""
 
     async def dispatch(self, request: Request, call_next):
+        # Skip WebSocket — BaseHTTPMiddleware doesn't support them
+        if request.scope.get("type") == "websocket" or request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+
         # Skip health/docs
         path = request.url.path
         if path in ("/health", "/docs", "/openapi.json"):

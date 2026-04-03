@@ -143,6 +143,12 @@ def auth_token(test_agent: Agent) -> str:
 
 
 @pytest.fixture
+def auth_cookies(test_agent: Agent) -> dict:
+    """Create access_token cookie dict for the test agent."""
+    return {"access_token": create_access_token(test_agent.id)}
+
+
+@pytest.fixture
 async def test_session(db_session: AsyncSession, clean_db) -> ChatSession:
     """Create a test chat session with encrypted data."""
     from app.services.encryption_service import EncryptionService

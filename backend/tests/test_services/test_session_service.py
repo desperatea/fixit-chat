@@ -6,8 +6,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.models.session import ChatSession
+from app.models.settings import WidgetSettings
 from app.schemas.session import SessionCreate
 from app.services.session_service import SessionService
+
+
+async def _ensure_settings(db_session: AsyncSession):
+    """Ensure widget_settings exists (needed by close_session)."""
+    from app.repositories.settings_repo import SettingsRepository
+    repo = SettingsRepository(db_session)
+    try:
+        await repo.get()
+    except Exception:
+        db_session.add(WidgetSettings())
+        await db_session.commit()
 
 
 class TestSessionService:
@@ -74,6 +86,7 @@ class TestSessionService:
             await service.verify_visitor_access(test_session.id, "wrong_token")
 
     async def test_close_session(self, db_session: AsyncSession, test_session: ChatSession):
+        await _ensure_settings(db_session)
         service = SessionService(db_session)
         closed = await service.close_session(test_session.id)
 
@@ -81,11 +94,26 @@ class TestSessionService:
         assert closed.closed_at is not None
 
     async def test_close_already_closed_session(self, db_session: AsyncSession, test_session: ChatSession):
+        await _ensure_settings(db_session)
         service = SessionService(db_session)
         await service.close_session(test_session.id)
 
         with pytest.raises(BadRequestError):
             await service.close_session(test_session.id)
+
+    async def test_reopen_session(self, db_session: AsyncSession, test_session: ChatSession):
+        await _ensure_settings(db_session)
+        service = SessionService(db_session)
+        await service.close_session(test_session.id)
+
+        reopened = await service.reopen_session(test_session.id)
+        assert reopened.status == "open"
+        assert reopened.closed_at is None
+
+    async def test_reopen_already_open_session(self, db_session: AsyncSession, test_session: ChatSession):
+        service = SessionService(db_session)
+        with pytest.raises(BadRequestError):
+            await service.reopen_session(test_session.id)
 
     async def test_rate_session(self, db_session: AsyncSession, test_session: ChatSession):
         service = SessionService(db_session)
@@ -94,9 +122,7 @@ class TestSessionService:
 
     async def test_rate_session_boundary_values(self, db_session: AsyncSession, test_session: ChatSession):
         service = SessionService(db_session)
-        # Rating 1
         rated = await service.rate_session(test_session.id, 1)
         assert rated.rating == 1
-        # Rating 5
         rated = await service.rate_session(test_session.id, 5)
         assert rated.rating == 5

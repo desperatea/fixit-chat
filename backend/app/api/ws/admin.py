@@ -16,14 +16,20 @@ router = APIRouter()
 
 @router.websocket("/ws/admin")
 async def agent_ws(ws: WebSocket):
+    # Must accept first, then authenticate via first message
+    # (BaseHTTPMiddleware blocks pre-accept cookie reads)
+    await ws.accept()
+
     # Get access token from cookie
     token = ws.cookies.get("access_token")
     if not token:
+        await ws.send_json({"type": "error", "data": {"message": "Unauthorized"}})
         await ws.close(code=4401, reason="Unauthorized")
         return
 
     payload = decode_token(token)
     if not payload or payload.get("type") != "access":
+        await ws.send_json({"type": "error", "data": {"message": "Invalid token"}})
         await ws.close(code=4401, reason="Unauthorized")
         return
 
@@ -33,10 +39,13 @@ async def agent_ws(ws: WebSocket):
         repo = AgentRepository(db)
         agent = await repo.get_by_id(agent_id)
         if not agent or not agent.is_active:
+            await ws.send_json({"type": "error", "data": {"message": "Agent not found"}})
             await ws.close(code=4401, reason="Unauthorized")
             return
 
-    await manager.connect_agent(agent_id, ws)
+    manager.agent_connections[agent_id] = ws
+    logger.info("ws_agent_connected", agent_id=str(agent_id))
+    await ws.send_json({"type": "auth_ok", "data": {}})
 
     try:
         while True:

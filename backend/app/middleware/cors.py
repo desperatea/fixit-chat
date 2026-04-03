@@ -8,6 +8,16 @@ logger = structlog.get_logger()
 DEFAULT_ORIGINS = ["*"]
 
 
+class CORSWithWSMiddleware(CORSMiddleware):
+    """CORS middleware that skips WebSocket connections."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "websocket":
+            await self.app(scope, receive, send)
+            return
+        await super().__call__(scope, receive, send)
+
+
 def setup_cors(app: FastAPI, origins: list[str] | None = None) -> None:
     """Add CORS middleware.
 
@@ -19,7 +29,7 @@ def setup_cors(app: FastAPI, origins: list[str] | None = None) -> None:
     if "*" in allow_origins or not allow_origins:
         # Test mode: allow all, but without credentials for security
         app.add_middleware(
-            CORSMiddleware,
+            CORSWithWSMiddleware,
             allow_origins=["*"],
             allow_credentials=False,
             allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
@@ -29,7 +39,7 @@ def setup_cors(app: FastAPI, origins: list[str] | None = None) -> None:
     else:
         # Production: specific origins with credentials
         app.add_middleware(
-            CORSMiddleware,
+            CORSWithWSMiddleware,
             allow_origins=allow_origins,
             allow_credentials=True,
             allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],

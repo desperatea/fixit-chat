@@ -13,6 +13,10 @@ class BruteForceMiddleware(BaseHTTPMiddleware):
     """Block IPs with too many failed login attempts."""
 
     async def dispatch(self, request: Request, call_next):
+        # Skip WebSocket — BaseHTTPMiddleware doesn't support them
+        if request.scope.get("type") == "websocket" or request.headers.get("upgrade", "").lower() == "websocket":
+            return await call_next(request)
+
         path = request.url.path
         if path != "/api/v1/admin/auth/login" or request.method != "POST":
             return await call_next(request)

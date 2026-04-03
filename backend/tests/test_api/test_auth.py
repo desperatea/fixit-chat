@@ -12,10 +12,9 @@ class TestLogin:
             "password": "TestPass123",
         })
         assert response.status_code == 200
-
-        data = response.json()
-        assert "access_token" in data
-        assert data["token_type"] == "bearer"
+        assert response.json()["status"] == "ok"
+        # Tokens are now in httpOnly cookies
+        assert "access_token" in response.cookies
         assert "refresh_token" in response.cookies
 
     async def test_login_wrong_password(self, client: AsyncClient, test_agent: Agent):
@@ -56,17 +55,17 @@ class TestRefresh:
         })
         assert login_resp.status_code == 200
 
-        # Extract refresh cookie and pass it directly
+        # Extract refresh cookie
         refresh_cookie = login_resp.cookies.get("refresh_token")
         assert refresh_cookie is not None
 
-        # Refresh — set cookie on the client directly
+        # Refresh
         refresh_resp = await client.post(
             "/api/v1/admin/auth/refresh",
             cookies={"refresh_token": refresh_cookie},
         )
         assert refresh_resp.status_code == 200
-        assert "access_token" in refresh_resp.json()
+        assert "access_token" in refresh_resp.cookies
 
     async def test_refresh_without_cookie(self, client: AsyncClient):
         response = await client.post("/api/v1/admin/auth/refresh")
@@ -80,16 +79,43 @@ class TestLogout:
             "username": "testadmin",
             "password": "TestPass123",
         })
-        token = login_resp.json()["access_token"]
+        access_cookie = login_resp.cookies.get("access_token")
+        refresh_cookie = login_resp.cookies.get("refresh_token")
 
-        # Logout
+        # Logout — send both cookies
         logout_resp = await client.post(
             "/api/v1/admin/auth/logout",
-            headers={"Authorization": f"Bearer {token}"},
-            cookies=login_resp.cookies,
+            cookies={
+                "access_token": access_cookie,
+                "refresh_token": refresh_cookie,
+            },
         )
         assert logout_resp.status_code == 204
 
     async def test_logout_without_token(self, client: AsyncClient):
         response = await client.post("/api/v1/admin/auth/logout")
         assert response.status_code in (401, 403)
+
+
+class TestMe:
+    async def test_me_authenticated(self, client: AsyncClient, test_agent: Agent):
+        # Login
+        login_resp = await client.post("/api/v1/admin/auth/login", json={
+            "username": "testadmin",
+            "password": "TestPass123",
+        })
+        access_cookie = login_resp.cookies.get("access_token")
+
+        # Check /me
+        me_resp = await client.get(
+            "/api/v1/admin/auth/me",
+            cookies={"access_token": access_cookie},
+        )
+        assert me_resp.status_code == 200
+        data = me_resp.json()
+        assert data["username"] == "testadmin"
+        assert data["display_name"] == "Test Admin"
+
+    async def test_me_unauthenticated(self, client: AsyncClient):
+        response = await client.get("/api/v1/admin/auth/me")
+        assert response.status_code == 401
