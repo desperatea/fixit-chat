@@ -9,6 +9,7 @@ from sqlalchemy.orm import make_transient
 from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.models.session import ChatSession
 from app.repositories.message_repo import MessageRepository
+from app.repositories.rating_repo import RatingRepository
 from app.repositories.session_repo import SessionRepository
 from app.repositories.settings_repo import SettingsRepository
 from app.schemas.session import SessionCreate
@@ -19,15 +20,18 @@ class SessionService:
     def __init__(self, db: AsyncSession):
         self.db = db
         self.session_repo = SessionRepository(db)
+        self.rating_repo = RatingRepository(db)
         self.message_repo = MessageRepository(db)
         self.encryption = EncryptionService()
 
     def _decrypt_and_detach(self, session: ChatSession) -> ChatSession:
-        """Load all columns, detach from DB session, then decrypt."""
+        """Load all columns + ratings, detach from DB session, then decrypt."""
         # Force load all column attributes to avoid DetachedInstanceError
         inspect(session)  # ensures state is loaded
         for col in session.__table__.columns:
             getattr(session, col.key, None)
+        # Force load ratings relationship
+        _ = session.ratings
         self.db.expunge(session)
         make_transient(session)
         self.encryption.decrypt_session(session)
@@ -143,7 +147,8 @@ class SessionService:
         await self.session_repo.update(
             session, status="closed", closed_at=datetime.now(timezone.utc),
         )
-        await self.db.refresh(session)
+        # Re-fetch with ratings eagerly loaded
+        session = await self.session_repo.get_by_id(session_id)
         return self._decrypt_and_detach(session)
 
     async def reopen_session(self, session_id: uuid.UUID) -> ChatSession:
@@ -154,17 +159,20 @@ class SessionService:
             raise BadRequestError("Сессия уже открыта")
 
         await self.session_repo.update(session, status="open", closed_at=None)
-        await self.db.refresh(session)
+        session = await self.session_repo.get_by_id(session_id)
         return self._decrypt_and_detach(session)
 
-    async def rate_session(self, session_id: uuid.UUID, rating: int) -> ChatSession:
+    async def rate_session(self, session_id: uuid.UUID, rating: int):
+        """Create a new rating entry for the session. Returns the created rating."""
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise NotFoundError("Сессия не найдена")
 
-        await self.session_repo.update(session, rating=rating)
-        await self.db.refresh(session)
-        return self._decrypt_and_detach(session)
+        rating_entry = await self.rating_repo.create(
+            session_id=session_id, rating=rating,
+        )
+        await self.db.refresh(rating_entry)
+        return rating_entry
 
     async def get_unread_count(self, session_id: uuid.UUID) -> int:
         return await self.session_repo.get_unread_count(session_id)

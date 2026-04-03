@@ -23,6 +23,14 @@ class SessionCreateResponse(BaseModel):
     created_at: datetime
 
 
+class RatingResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    rating: int
+    created_at: datetime
+
+
 class SessionResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
@@ -32,7 +40,8 @@ class SessionResponse(BaseModel):
     visitor_org: str | None
     initial_message: str
     status: str
-    rating: int | None
+    ratings: list[RatingResponse] = []
+    latest_rating: int | None = None
     consent_given: bool
     custom_fields: dict | None
     closed_at: datetime | None

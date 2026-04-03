@@ -14,6 +14,17 @@ class SessionRepository(SoftDeleteRepository[ChatSession]):
     def __init__(self, session: AsyncSession):
         super().__init__(ChatSession, session)
 
+    async def get_by_id(self, session_id, *, include_deleted: bool = False) -> ChatSession | None:
+        stmt = (
+            select(ChatSession)
+            .options(selectinload(ChatSession.ratings))
+            .where(ChatSession.id == session_id)
+        )
+        if not include_deleted:
+            stmt = stmt.where(ChatSession.deleted_at.is_(None))
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
+
     async def get_by_id_with_messages(self, session_id) -> ChatSession | None:
         stmt = (
             select(ChatSession)
@@ -24,9 +35,13 @@ class SessionRepository(SoftDeleteRepository[ChatSession]):
         return result.scalar_one_or_none()
 
     async def get_by_visitor_token(self, token: str) -> ChatSession | None:
-        stmt = select(ChatSession).where(
-            ChatSession.visitor_token == token,
-            ChatSession.deleted_at.is_(None),
+        stmt = (
+            select(ChatSession)
+            .options(selectinload(ChatSession.ratings))
+            .where(
+                ChatSession.visitor_token == token,
+                ChatSession.deleted_at.is_(None),
+            )
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -48,7 +63,11 @@ class SessionRepository(SoftDeleteRepository[ChatSession]):
 
         total = (await self.session.execute(count_stmt)).scalar_one()
 
-        stmt = base.order_by(ChatSession.created_at.desc()).offset(offset).limit(limit)
+        stmt = (
+            base.options(selectinload(ChatSession.ratings))
+            .order_by(ChatSession.created_at.desc())
+            .offset(offset).limit(limit)
+        )
         result = await self.session.execute(stmt)
         sessions = list(result.scalars().all())
 
@@ -61,7 +80,11 @@ class SessionRepository(SoftDeleteRepository[ChatSession]):
         max_rows: int = 1000,
     ) -> list[ChatSession]:
         """Load sessions for in-memory search (fields are encrypted in DB)."""
-        stmt = select(ChatSession).where(ChatSession.deleted_at.is_(None))
+        stmt = (
+            select(ChatSession)
+            .options(selectinload(ChatSession.ratings))
+            .where(ChatSession.deleted_at.is_(None))
+        )
         if status:
             stmt = stmt.where(ChatSession.status == status)
         stmt = stmt.order_by(ChatSession.created_at.desc()).limit(max_rows)

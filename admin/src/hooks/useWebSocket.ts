@@ -114,13 +114,16 @@ function handleEvent(event: WSEvent) {
       });
       store.fetchSessions();
       break;
-    case 'session_rated':
-      store.updateSessionInList({
-        id: data.session_id as string,
+    case 'session_rated': {
+      const newRating = {
+        id: data.rating_id as string,
         rating: data.rating as number,
-      });
+        created_at: data.created_at as string,
+      };
+      store.addRating(data.session_id as string, newRating);
       store.fetchSessions();
       break;
+    }
     case 'session_reopened':
       store.updateSessionInList({
         id: data.session_id as string,

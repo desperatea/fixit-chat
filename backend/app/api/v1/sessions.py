@@ -7,11 +7,20 @@ from app.api.deps import get_current_agent, get_db
 from app.api.ws.manager import manager
 from app.models.agent import Agent
 from app.schemas.message import MessageCreate, MessageResponse, ReadMessagesRequest
-from app.schemas.session import SessionListResponse, SessionResponse, SessionUpdate
+from app.schemas.session import RatingResponse, SessionListResponse, SessionResponse, SessionUpdate
 from app.services.message_service import MessageService
 from app.services.session_service import SessionService
 
 router = APIRouter(prefix="/sessions", tags=["admin-sessions"])
+
+
+def _build_session_response(session, unread: int = 0) -> SessionResponse:
+    resp = SessionResponse.model_validate(session)
+    resp.unread_count = unread
+    if session.ratings:
+        resp.ratings = [RatingResponse.model_validate(r) for r in session.ratings]
+        resp.latest_rating = session.ratings[-1].rating
+    return resp
 
 
 @router.get("", response_model=SessionListResponse)
@@ -30,9 +39,7 @@ async def list_sessions(
     items = []
     for s in sessions:
         unread = await service.get_unread_count(s.id)
-        resp = SessionResponse.model_validate(s)
-        resp.unread_count = unread
-        items.append(resp)
+        items.append(_build_session_response(s, unread))
 
     return SessionListResponse(items=items, total=total, offset=offset, limit=limit)
 
@@ -46,9 +53,7 @@ async def get_session(
     service = SessionService(db)
     session = await service.get_session(session_id)
     unread = await service.get_unread_count(session_id)
-    resp = SessionResponse.model_validate(session)
-    resp.unread_count = unread
-    return resp
+    return _build_session_response(session, unread)
 
 
 @router.patch("/{session_id}", response_model=SessionResponse)

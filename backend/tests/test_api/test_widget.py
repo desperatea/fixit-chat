@@ -234,13 +234,41 @@ class TestRating:
             json={"rating": 5},
             headers={"X-Visitor-Token": session["visitor_token"]},
         )
-        assert response.status_code == 200
-        assert response.json()["rating"] == 5
+        assert response.status_code == 201
+        data = response.json()
+        assert data["rating"] == 5
+        assert "id" in data
+        assert "created_at" in data
+
+    async def test_rate_session_multiple_ratings(self, client: AsyncClient, clean_db):
+        session = await self._create_session(client)
+        headers = {"X-Visitor-Token": session["visitor_token"]}
+
+        # First rating
+        r1 = await client.post(
+            f"/api/v1/widget/sessions/{session['id']}/rating",
+            json={"rating": 3}, headers=headers,
+        )
+        assert r1.status_code == 201
+
+        # Second rating
+        r2 = await client.post(
+            f"/api/v1/widget/sessions/{session['id']}/rating",
+            json={"rating": 5}, headers=headers,
+        )
+        assert r2.status_code == 201
+        assert r1.json()["id"] != r2.json()["id"]
+
+        # Session should have both ratings
+        session_resp = await client.get(
+            f"/api/v1/widget/sessions/{session['id']}", headers=headers,
+        )
+        assert len(session_resp.json()["ratings"]) == 2
+        assert session_resp.json()["latest_rating"] == 5
 
     async def test_rate_session_invalid_rating(self, client: AsyncClient, clean_db):
         session = await self._create_session(client)
 
-        # Rating 0 (too low)
         response = await client.post(
             f"/api/v1/widget/sessions/{session['id']}/rating",
             json={"rating": 0},
@@ -248,10 +276,43 @@ class TestRating:
         )
         assert response.status_code == 422
 
-        # Rating 6 (too high)
         response = await client.post(
             f"/api/v1/widget/sessions/{session['id']}/rating",
             json={"rating": 6},
             headers={"X-Visitor-Token": session["visitor_token"]},
         )
         assert response.status_code == 422
+
+
+class TestReopen:
+    async def _create_and_close(self, client: AsyncClient) -> dict:
+        resp = await client.post("/api/v1/widget/sessions", json={
+            "visitor_name": "Иван",
+            "initial_message": "Вопрос",
+            "consent_given": True,
+        })
+        session = resp.json()
+        await client.post(
+            f"/api/v1/widget/sessions/{session['id']}/close",
+            headers={"X-Visitor-Token": session["visitor_token"]},
+        )
+        return session
+
+    async def test_reopen_session(self, client: AsyncClient, clean_db):
+        session = await self._create_and_close(client)
+
+        response = await client.post(
+            f"/api/v1/widget/sessions/{session['id']}/reopen",
+            headers={"X-Visitor-Token": session["visitor_token"]},
+        )
+        assert response.status_code == 200
+        assert response.json()["status"] == "open"
+
+    async def test_reopen_invalid_token(self, client: AsyncClient, clean_db):
+        session = await self._create_and_close(client)
+
+        response = await client.post(
+            f"/api/v1/widget/sessions/{session['id']}/reopen",
+            headers={"X-Visitor-Token": "wrong"},
+        )
+        assert response.status_code == 403

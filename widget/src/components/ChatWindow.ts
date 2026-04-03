@@ -86,7 +86,7 @@ export class ChatWindow {
 
         if (sessionInfo.status === 'closed') {
           this.showChat(messages);
-          this.showClosed(!!(sessionInfo as Record<string, unknown>).rating);
+          this.showClosed();
           return;
         }
 
@@ -153,7 +153,7 @@ export class ChatWindow {
     }
   }
 
-  private showClosed(alreadyRated = false): void {
+  private showClosed(): void {
     this.state = 'closed';
 
     // Hide input, close button
@@ -162,30 +162,39 @@ export class ChatWindow {
     const closeBar = this.bodyEl.querySelector('.fixit-close-bar');
     if (closeBar) (closeBar as HTMLElement).style.display = 'none';
 
-    if (!alreadyRated) {
-      const ratingForm = new RatingForm({
-        primaryColor: this.settings.primary_color,
-        onRate: (rating) => this.handleRate(rating),
-      });
-      this.bodyEl.appendChild(ratingForm.render());
-    }
+    // Always show rating form for this close cycle
+    const ratingForm = new RatingForm({
+      primaryColor: this.settings.primary_color,
+      onRate: (rating) => {
+        this.handleRate(rating);
+        // Enable continue button after rating
+        const btn = this.bodyEl.querySelector('.fixit-continue-btn') as HTMLButtonElement;
+        if (btn) {
+          btn.disabled = false;
+        }
+      },
+    });
+    this.bodyEl.appendChild(ratingForm.render());
 
-    // "New Chat" button
-    const newChatBtn = document.createElement('button');
-    newChatBtn.className = 'fixit-new-chat-btn';
-    newChatBtn.textContent = 'Начать новый чат';
-    newChatBtn.style.backgroundColor = this.settings.primary_color;
-    newChatBtn.addEventListener('click', () => this.handleNewChat());
-    this.bodyEl.appendChild(newChatBtn);
+    // "Continue Chat" button — disabled until rated
+    const continueBtn = document.createElement('button');
+    continueBtn.className = 'fixit-continue-btn';
+    continueBtn.textContent = 'Продолжить чат';
+    continueBtn.style.backgroundColor = this.settings.primary_color;
+    continueBtn.disabled = true;
+    continueBtn.addEventListener('click', () => this.handleContinueChat());
+    this.bodyEl.appendChild(continueBtn);
   }
 
-  private handleNewChat(): void {
-    this.ws?.disconnect();
-    this.ws = null;
-    clearSession();
-    this.sessionId = null;
-    this.visitorToken = null;
-    this.showForm();
+  private async handleContinueChat(): Promise<void> {
+    if (!this.sessionId || !this.visitorToken) return;
+    try {
+      await api.reopenSession(this.sessionId, this.visitorToken);
+      this.onSessionReopened();
+    } catch {
+      // ignore — agent may have already reopened
+      this.onSessionReopened();
+    }
   }
 
   private onSessionReopened(): void {
@@ -197,11 +206,11 @@ export class ChatWindow {
     inputEl.style.display = '';
     this.messageInput.setDisabled(false);
 
-    // Remove rating form and new-chat button
+    // Remove rating form and continue button
     const rating = this.bodyEl.querySelector('.fixit-rating');
     if (rating) rating.remove();
-    const newChatBtn = this.bodyEl.querySelector('.fixit-new-chat-btn');
-    if (newChatBtn) newChatBtn.remove();
+    const continueBtn = this.bodyEl.querySelector('.fixit-continue-btn');
+    if (continueBtn) continueBtn.remove();
 
     // Restore close bar
     const closeBar = this.bodyEl.querySelector('.fixit-close-bar');

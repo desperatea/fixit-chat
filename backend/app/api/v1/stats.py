@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.api.deps import get_current_agent, get_db
 from app.models.agent import Agent
 from app.models.message import Message
+from app.models.rating import SessionRating
 from app.models.session import ChatSession
 from app.schemas.stats import DailyStats, DashboardStats
 
@@ -33,11 +34,8 @@ async def get_stats(
     msg_stmt = select(func.count()).select_from(Message)
     total_messages = (await db.execute(msg_stmt)).scalar_one()
 
-    # Avg rating
-    avg_stmt = select(func.avg(ChatSession.rating)).where(
-        ChatSession.rating.is_not(None),
-        ChatSession.deleted_at.is_(None),
-    )
+    # Avg rating from session_ratings table
+    avg_stmt = select(func.avg(SessionRating.rating))
     avg_rating = (await db.execute(avg_stmt)).scalar_one()
 
     return DashboardStats(
@@ -63,7 +61,6 @@ async def get_daily_stats(
         select(
             func.date_trunc("day", ChatSession.created_at).label("day"),
             func.count().label("sessions"),
-            func.avg(ChatSession.rating).label("avg_rating"),
         )
         .where(
             ChatSession.deleted_at.is_(None),
@@ -83,21 +80,34 @@ async def get_daily_stats(
         .group_by("day")
     )
 
+    # Ratings per day (from session_ratings table)
+    rating_stmt = (
+        select(
+            func.date_trunc("day", SessionRating.created_at).label("day"),
+            func.avg(SessionRating.rating).label("avg_rating"),
+        )
+        .where(SessionRating.created_at >= str(since))
+        .group_by("day")
+    )
+
     session_result = await db.execute(session_stmt)
     msg_result = await db.execute(msg_stmt)
+    rating_result = await db.execute(rating_stmt)
 
     session_rows = {row.day.date(): row for row in session_result}
     msg_rows = {row.day.date(): row.messages for row in msg_result}
+    rating_rows = {row.day.date(): row.avg_rating for row in rating_result}
 
     result = []
     for i in range(days):
         d = since + timedelta(days=i)
         s_row = session_rows.get(d)
+        avg_r = rating_rows.get(d)
         result.append(DailyStats(
             date=d,
             sessions=s_row.sessions if s_row else 0,
             messages=msg_rows.get(d, 0),
-            avg_rating=round(float(s_row.avg_rating), 2) if s_row and s_row.avg_rating else None,
+            avg_rating=round(float(avg_r), 2) if avg_r else None,
         ))
 
     return result

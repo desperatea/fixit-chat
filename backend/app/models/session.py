@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, CheckConstraint, DateTime, Index, SmallInteger, String, Text, text
+from sqlalchemy import Boolean, DateTime, Index, String, Text, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -16,16 +16,15 @@ class ChatSession(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     initial_message: Mapped[str] = mapped_column(Text, nullable=False)
     visitor_token: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
     status: Mapped[str] = mapped_column(String(20), default="open", nullable=False)
-    rating: Mapped[int | None] = mapped_column(SmallInteger, nullable=True)
     consent_given: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     custom_fields: Mapped[dict | None] = mapped_column(JSONB, default=dict)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     messages = relationship("Message", back_populates="session", cascade="all, delete-orphan")
     notes = relationship("SessionNote", back_populates="session", cascade="all, delete-orphan")
+    ratings = relationship("SessionRating", back_populates="session", cascade="all, delete-orphan", order_by="SessionRating.created_at")
 
     __table_args__ = (
-        CheckConstraint("rating BETWEEN 1 AND 5", name="ck_sessions_rating"),
         Index("idx_sessions_status", "status", postgresql_where=text("deleted_at IS NULL")),
         Index("idx_sessions_created", text("created_at DESC")),
     )

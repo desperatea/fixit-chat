@@ -164,8 +164,33 @@ export default function ChatPage() {
           </Box>
         </Box>
 
-        {/* Notes sidebar */}
+        {/* Sidebar: Ratings + Notes */}
         <Box sx={{ width: 300, borderLeft: 1, borderColor: 'divider', display: 'flex', flexDirection: 'column' }}>
+          {/* Ratings section */}
+          {activeSession.ratings && activeSession.ratings.length > 0 && (
+            <>
+              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+                <Typography variant="subtitle2">Оценки</Typography>
+              </Box>
+              <Box sx={{ px: 1.5, py: 1, borderBottom: 1, borderColor: 'divider' }}>
+                {activeSession.ratings.map((r) => (
+                  <Box key={r.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5 }}>
+                    <Chip
+                      label={'★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)}
+                      size="small"
+                      color={r.rating >= 4 ? 'success' : r.rating >= 3 ? 'warning' : 'error'}
+                      variant="outlined"
+                    />
+                    <Typography variant="caption" color="text.secondary">
+                      {new Date(r.created_at).toLocaleString('ru-RU')}
+                    </Typography>
+                  </Box>
+                ))}
+              </Box>
+            </>
+          )}
+
+          {/* Notes section */}
           <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
             <Typography variant="subtitle2">Внутренние заметки</Typography>
           </Box>

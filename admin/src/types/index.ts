@@ -7,6 +7,12 @@ export interface Agent {
   created_at: string;
 }
 
+export interface Rating {
+  id: string;
+  rating: number;
+  created_at: string;
+}
+
 export interface Session {
   id: string;
   visitor_name: string;
@@ -14,7 +20,8 @@ export interface Session {
   visitor_org: string | null;
   initial_message: string;
   status: 'open' | 'closed';
-  rating: number | null;
+  ratings: Rating[];
+  latest_rating: number | null;
   consent_given: boolean;
   custom_fields: Record<string, unknown> | null;
   closed_at: string | null;

@@ -65,7 +65,6 @@ class TestSessionService:
         session = await service.get_session(test_session.id)
 
         assert session.id == test_session.id
-        # Should be decrypted
         assert session.visitor_name == "Иван Петров"
 
     async def test_get_session_not_found(self, db_session: AsyncSession, clean_db):
@@ -117,12 +116,32 @@ class TestSessionService:
 
     async def test_rate_session(self, db_session: AsyncSession, test_session: ChatSession):
         service = SessionService(db_session)
-        rated = await service.rate_session(test_session.id, 5)
-        assert rated.rating == 5
+        rating_entry = await service.rate_session(test_session.id, 5)
+        assert rating_entry.rating == 5
+        assert rating_entry.session_id == test_session.id
 
-    async def test_rate_session_boundary_values(self, db_session: AsyncSession, test_session: ChatSession):
+    async def test_multiple_ratings(self, db_session: AsyncSession, test_session: ChatSession):
+        """Close → rate → reopen → close → rate — both ratings preserved."""
+        await _ensure_settings(db_session)
         service = SessionService(db_session)
-        rated = await service.rate_session(test_session.id, 1)
-        assert rated.rating == 1
-        rated = await service.rate_session(test_session.id, 5)
-        assert rated.rating == 5
+
+        # First cycle: close and rate
+        await service.close_session(test_session.id)
+        r1 = await service.rate_session(test_session.id, 4)
+
+        # Reopen
+        await service.reopen_session(test_session.id)
+
+        # Second cycle: close and rate
+        await service.close_session(test_session.id)
+        r2 = await service.rate_session(test_session.id, 5)
+
+        assert r1.rating == 4
+        assert r2.rating == 5
+        assert r1.id != r2.id
+
+        # Session should have both ratings
+        session = await service.get_session(test_session.id)
+        assert len(session.ratings) == 2
+        assert session.ratings[0].rating == 4
+        assert session.ratings[1].rating == 5

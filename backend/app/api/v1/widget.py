@@ -8,7 +8,7 @@ from app.api.ws.manager import manager
 from app.core.exceptions import ForbiddenError
 from app.repositories.settings_repo import SettingsRepository
 from app.schemas.message import MessageCreate, MessageResponse, ReadMessagesRequest
-from app.schemas.session import RatingCreate, SessionCreate, SessionCreateResponse, SessionResponse
+from app.schemas.session import RatingCreate, RatingResponse, SessionCreate, SessionCreateResponse, SessionResponse
 from app.schemas.settings import WidgetSettingsResponse
 from app.services.message_service import MessageService
 from app.services.notification_service import NotificationService
@@ -53,6 +53,16 @@ async def create_session(
     )
 
 
+def _build_session_response(session, unread: int = 0) -> SessionResponse:
+    """Build SessionResponse with ratings from a decrypted session."""
+    resp = SessionResponse.model_validate(session)
+    resp.unread_count = unread
+    if session.ratings:
+        resp.ratings = [RatingResponse.model_validate(r) for r in session.ratings]
+        resp.latest_rating = session.ratings[-1].rating
+    return resp
+
+
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
 async def get_session(
     session_id: uuid.UUID,
@@ -62,9 +72,7 @@ async def get_session(
     service = SessionService(db)
     session = await service.verify_visitor_access(session_id, x_visitor_token)
     unread = await service.get_unread_count(session_id)
-    resp = SessionResponse.model_validate(session)
-    resp.unread_count = unread
-    return resp
+    return _build_session_response(session, unread)
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[MessageResponse])
@@ -145,7 +153,7 @@ async def mark_read(
     await msg_service.mark_as_read(session_id, data.message_ids)
 
 
-@router.post("/sessions/{session_id}/rating", response_model=SessionResponse)
+@router.post("/sessions/{session_id}/rating", response_model=RatingResponse, status_code=201)
 async def rate_session(
     session_id: uuid.UUID,
     data: RatingCreate,
@@ -155,12 +163,39 @@ async def rate_session(
     session_service = SessionService(db)
     await session_service.verify_visitor_access(session_id, x_visitor_token)
 
-    session = await session_service.rate_session(session_id, data.rating)
+    rating_entry = await session_service.rate_session(session_id, data.rating)
 
     # Notify agents
     await manager.send_to_agents({
         "type": "session_rated",
-        "data": {"session_id": str(session_id), "rating": data.rating},
+        "data": {
+            "session_id": str(session_id),
+            "rating": data.rating,
+            "rating_id": str(rating_entry.id),
+            "created_at": str(rating_entry.created_at),
+        },
     })
 
-    return session
+    return rating_entry
+
+
+@router.post("/sessions/{session_id}/reopen", response_model=SessionResponse)
+async def reopen_session(
+    session_id: uuid.UUID,
+    x_visitor_token: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    session_service = SessionService(db)
+    await session_service.verify_visitor_access(session_id, x_visitor_token)
+
+    session = await session_service.reopen_session(session_id)
+    unread = await session_service.get_unread_count(session_id)
+
+    # Notify agents
+    reopen_event = {
+        "type": "session_reopened",
+        "data": {"session_id": str(session_id)},
+    }
+    await manager.send_to_agents(reopen_event)
+
+    return _build_session_response(session, unread)

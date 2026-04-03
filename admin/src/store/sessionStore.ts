@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import * as sessionsApi from '../api/sessions';
-import type { Message, Note, Session } from '../types';
+import type { Message, Note, Rating, Session } from '../types';
 
 interface SessionState {
   sessions: Session[];
@@ -27,6 +27,7 @@ interface SessionState {
   markRead: (sessionId: string, messageIds: string[]) => Promise<void>;
   addIncomingMessage: (msg: Message) => void;
   updateSessionInList: (session: Partial<Session> & { id: string }) => void;
+  addRating: (sessionId: string, rating: Rating) => void;
   setTyping: (sessionId: string) => void;
   clearTyping: (sessionId: string) => void;
 }
@@ -100,6 +101,19 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     const { messages, activeSession } = get();
     if (activeSession?.id === msg.session_id) {
       set({ messages: [...messages, msg] });
+    }
+  },
+
+  addRating: (sessionId, rating) => {
+    const { activeSession } = get();
+    if (activeSession?.id === sessionId) {
+      set({
+        activeSession: {
+          ...activeSession,
+          ratings: [...(activeSession.ratings || []), rating],
+          latest_rating: rating.rating,
+        },
+      });
     }
   },
 

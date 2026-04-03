@@ -103,7 +103,7 @@ export default function SessionListPage() {
                       color={s.status === 'open' ? 'success' : 'default'}
                       size="small"
                     />
-                    {s.rating && <Chip label={`${'★'.repeat(s.rating)}`} size="small" sx={{ ml: 0.5 }} />}
+                    {s.latest_rating && <Chip label={`${'★'.repeat(s.latest_rating)}`} size="small" sx={{ ml: 0.5 }} />}
                   </TableCell>
                   <TableCell>
                     {new Date(s.created_at).toLocaleDateString('ru-RU')}

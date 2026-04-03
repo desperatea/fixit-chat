@@ -109,6 +109,16 @@ export async function rateSession(
   });
 }
 
+export async function reopenSession(
+  sessionId: string,
+  token: string,
+): Promise<void> {
+  return request<void>(`/api/v1/widget/sessions/${sessionId}/reopen`, {
+    method: 'POST',
+    headers: visitorHeaders(token),
+  });
+}
+
 export async function uploadFile(
   sessionId: string,
   token: string,
