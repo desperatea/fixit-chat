@@ -85,8 +85,9 @@ export class ChatWindow {
         const messages = await api.getMessages(saved.sessionId, saved.visitorToken).catch(() => []);
 
         if (sessionInfo.status === 'closed') {
-          this.showChat(messages);
-          this.showClosed();
+          const hasRatings = !!((sessionInfo as Record<string, unknown>).latest_rating);
+          this.showChat(messages, true);
+          this.showClosed(hasRatings);
           return;
         }
 
@@ -117,7 +118,7 @@ export class ChatWindow {
     this.bodyEl.appendChild(form.render());
   }
 
-  private showChat(messages: Message[] = []): void {
+  private showChat(messages: Message[] = [], isClosed = false): void {
     this.state = 'chat';
     this.bodyEl.innerHTML = '';
 
@@ -126,6 +127,7 @@ export class ChatWindow {
     // Close session button
     const closeBar = document.createElement('div');
     closeBar.className = 'fixit-close-bar';
+    closeBar.style.display = isClosed ? 'none' : '';
     const closeBtn = document.createElement('button');
     closeBtn.className = 'fixit-close-btn';
     closeBtn.textContent = 'Завершить чат';
@@ -134,8 +136,8 @@ export class ChatWindow {
     this.bodyEl.appendChild(closeBar);
 
     const inputEl = this.messageInput.render();
-    inputEl.style.display = '';
-    this.messageInput.setDisabled(false);
+    inputEl.style.display = isClosed ? 'none' : '';
+    this.messageInput.setDisabled(isClosed);
     this.bodyEl.appendChild(inputEl);
 
     if (messages.length > 0) {
@@ -153,7 +155,7 @@ export class ChatWindow {
     }
   }
 
-  private showClosed(): void {
+  private showClosed(alreadyRated = false): void {
     this.state = 'closed';
 
     // Hide input, close button
@@ -162,7 +164,18 @@ export class ChatWindow {
     const closeBar = this.bodyEl.querySelector('.fixit-close-bar');
     if (closeBar) (closeBar as HTMLElement).style.display = 'none';
 
-    // Always show rating form for this close cycle
+    if (alreadyRated) {
+      // Already rated — just show continue button (enabled)
+      const continueBtn = document.createElement('button');
+      continueBtn.className = 'fixit-continue-btn';
+      continueBtn.textContent = 'Продолжить чат';
+      continueBtn.style.backgroundColor = this.settings.primary_color;
+      continueBtn.addEventListener('click', () => this.handleContinueChat());
+      this.bodyEl.appendChild(continueBtn);
+      return;
+    }
+
+    // Show rating form
     const ratingForm = new RatingForm({
       primaryColor: this.settings.primary_color,
       onRate: (rating) => {
