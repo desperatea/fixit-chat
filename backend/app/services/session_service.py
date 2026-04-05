@@ -178,5 +178,14 @@ class SessionService:
         await self.db.refresh(rating_entry)
         return rating_entry
 
+    async def update_visitor_phone(self, session_id: uuid.UUID, phone: str) -> None:
+        """Update visitor phone (encrypted)."""
+        from app.core.encryption import encrypt
+        session = await self.session_repo.get_by_id(session_id)
+        if not session:
+            raise NotFoundError("Сессия не найдена")
+        encrypted = encrypt(phone) if phone else ""
+        await self.session_repo.update(session, visitor_phone=encrypted)
+
     async def get_unread_count(self, session_id: uuid.UUID) -> int:
         return await self.session_repo.get_unread_count(session_id)

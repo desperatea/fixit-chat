@@ -60,6 +60,11 @@ async def update_session(
     db: AsyncSession = Depends(get_db),
 ):
     service = SessionService(db)
+
+    # Update visitor phone if provided
+    if data.visitor_phone is not None:
+        await service.update_visitor_phone(session_id, data.visitor_phone)
+
     if data.status == "closed":
         session = await service.close_session(session_id)
         await db.commit()

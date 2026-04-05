@@ -5,7 +5,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Header from '../components/Layout/Header';
-import { uploadFile } from '../api/sessions';
+import { uploadFile, updateVisitorPhone } from '../api/sessions';
 import { useSessionStore } from '../store/sessionStore';
 import { notifyError } from '../store/notificationStore';
 import { useWebSocket } from '../hooks/useWebSocket';
@@ -18,6 +18,8 @@ export default function ChatPage() {
   } = useSessionStore();
   const [input, setInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
+  const [editingPhone, setEditingPhone] = useState(false);
+  const [phoneInput, setPhoneInput] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -78,16 +80,58 @@ export default function ChatPage() {
     if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
-  const formatPhone = (phone: string | null) => {
-    if (!phone) return 'Без телефона';
-    return phone.replace(/^\+7/, '8');
+  const handlePhoneEdit = () => {
+    setPhoneInput(activeSession?.visitor_phone || '');
+    setEditingPhone(true);
+  };
+
+  const handlePhoneSave = async () => {
+    if (!id) return;
+    try {
+      await updateVisitorPhone(id, phoneInput.trim());
+      await fetchSession(id);
+      setEditingPhone(false);
+    } catch (err) {
+      notifyError(err, 'Не удалось сохранить телефон');
+    }
   };
 
   if (!activeSession) return null;
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Header title={`${activeSession.visitor_name} — ${formatPhone(activeSession.visitor_phone)}`} />
+      <Header title={activeSession.visitor_name} />
+      {/* Editable phone under header */}
+      <Box sx={{ px: 3, py: 0.5, bgcolor: 'grey.50', borderBottom: 1, borderColor: 'divider', display: 'flex', alignItems: 'center', gap: 1 }}>
+        {editingPhone ? (
+          <>
+            <TextField
+              size="small"
+              value={phoneInput}
+              onChange={(e) => setPhoneInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handlePhoneSave();
+                if (e.key === 'Escape') setEditingPhone(false);
+              }}
+              placeholder="+79001234567"
+              autoFocus
+              sx={{ width: 200 }}
+            />
+            <Button size="small" onClick={handlePhoneSave}>Сохранить</Button>
+            <Button size="small" color="inherit" onClick={() => setEditingPhone(false)}>Отмена</Button>
+          </>
+        ) : (
+          <Typography
+            variant="body2"
+            color="text.secondary"
+            sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main', textDecoration: 'underline' } }}
+            onClick={handlePhoneEdit}
+            title="Нажмите чтобы изменить телефон"
+          >
+            📞 {activeSession.visitor_phone || 'Добавить телефон'}
+          </Typography>
+        )}
+      </Box>
 
       <Box sx={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
         {/* Chat area */}

@@ -26,6 +26,11 @@ export async function reopenSession(id: string): Promise<Session> {
   return data;
 }
 
+export async function updateVisitorPhone(id: string, phone: string): Promise<Session> {
+  const { data } = await api.patch(`/sessions/${id}`, { visitor_phone: phone });
+  return data;
+}
+
 export async function getMessages(sessionId: string): Promise<Message[]> {
   const { data } = await api.get(`/sessions/${sessionId}/messages`);
   return data;

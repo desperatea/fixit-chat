@@ -52,6 +52,7 @@ class SessionResponse(BaseModel):
 
 class SessionUpdate(BaseModel):
     status: str | None = Field(None, pattern="^(open|closed)$")
+    visitor_phone: str | None = Field(None, max_length=50)
 
 
 class SessionListResponse(BaseModel):
