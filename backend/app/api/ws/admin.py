@@ -1,3 +1,4 @@
+import json
 import uuid
 
 import structlog
@@ -49,8 +50,18 @@ async def agent_ws(ws: WebSocket):
 
     try:
         while True:
-            data = await ws.receive_json()
+            raw = await ws.receive_text()
+            try:
+                data = json.loads(raw)
+            except (json.JSONDecodeError, ValueError):
+                continue  # ignore malformed JSON
             msg_type = data.get("type")
+
+            # Heartbeat: respond to ping with pong
+            if msg_type == "ping":
+                await ws.send_json({"type": "pong", "data": {}})
+                continue
+
             target_session_id = data.get("data", {}).get("session_id")
 
             if not target_session_id:

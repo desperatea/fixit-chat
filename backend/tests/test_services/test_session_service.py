@@ -62,6 +62,7 @@ class TestSessionService:
 
     async def test_get_session(self, db_session: AsyncSession, test_session: ChatSession):
         service = SessionService(db_session)
+        # get_session now returns SessionResponse DTO
         session = await service.get_session(test_session.id)
 
         assert session.id == test_session.id
@@ -74,10 +75,10 @@ class TestSessionService:
 
     async def test_verify_visitor_access_valid(self, db_session: AsyncSession, test_session: ChatSession):
         service = SessionService(db_session)
-        session = await service.verify_visitor_access(
+        # verify_visitor_access now returns None (just validates)
+        await service.verify_visitor_access(
             test_session.id, test_session.visitor_token,
         )
-        assert session.visitor_name == "Иван Петров"
 
     async def test_verify_visitor_access_invalid_token(self, db_session: AsyncSession, test_session: ChatSession):
         service = SessionService(db_session)
@@ -140,7 +141,7 @@ class TestSessionService:
         assert r2.rating == 5
         assert r1.id != r2.id
 
-        # Session should have both ratings
+        # Session should have both ratings (now returns SessionResponse DTO)
         session = await service.get_session(test_session.id)
         assert len(session.ratings) == 2
         assert session.ratings[0].rating == 4

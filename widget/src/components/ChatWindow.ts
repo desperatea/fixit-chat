@@ -1,7 +1,7 @@
 import type { Message, WidgetSettings, WSEvent } from '../types';
 import * as api from '../services/api';
 import { WebSocketClient } from '../services/websocket';
-import { clearSession, getSession, saveSession } from '../services/storage';
+import { clearSession, getSession, getSavedGlpiUserId, saveSession } from '../services/storage';
 import { playNotificationSound } from '../services/sound';
 import { MessageInput } from './MessageInput';
 import { MessageList } from './MessageList';
@@ -24,6 +24,7 @@ export class ChatWindow {
   constructor(
     private settings: WidgetSettings,
     private wsUrl: string,
+    private glpiToken?: string,
   ) {
     this.el = document.createElement('div');
     this.el.className = 'fixit-window';
@@ -74,7 +75,29 @@ export class ChatWindow {
     this.el.style.display = show ? 'flex' : 'none';
   }
 
+  /** Extract user_id from GLPI token payload (base64url.signature). */
+  private getGlpiUserId(): string | null {
+    if (!this.glpiToken) return null;
+    try {
+      const payloadB64 = this.glpiToken.split('.')[0];
+      const json = atob(payloadB64.replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(json).user_id || null;
+    } catch {
+      return null;
+    }
+  }
+
   private async tryRestoreSession(): Promise<void> {
+    // If GLPI user changed — clear old session
+    const glpiUserId = this.getGlpiUserId();
+    if (glpiUserId) {
+      const savedGlpiId = getSavedGlpiUserId();
+      if (savedGlpiId && savedGlpiId !== glpiUserId) {
+        clearSession();
+      }
+    }
+
+    // 1. Try restoring existing session from localStorage
     const saved = getSession();
     if (saved) {
       try {
@@ -97,7 +120,75 @@ export class ChatWindow {
         clearSession();
       }
     }
+
+    // 2. If GLPI token present — show prompt to start chat (no form needed)
+    if (this.glpiToken) {
+      this.showGlpiPrompt();
+      return;
+    }
+
     this.showForm();
+  }
+
+  private showGlpiPrompt(): void {
+    this.state = 'form';
+    this.bodyEl.innerHTML = '';
+
+    const prompt = document.createElement('div');
+    prompt.className = 'fixit-welcome';
+    prompt.textContent = 'Вы авторизованы. Опишите вашу проблему:';
+    this.bodyEl.appendChild(prompt);
+
+    // Simple message input + send button
+    const inputWrap = document.createElement('div');
+    inputWrap.style.cssText = 'padding: 12px;';
+
+    const textarea = document.createElement('textarea');
+    textarea.className = 'fixit-input-field';
+    textarea.placeholder = 'Сообщение...';
+    textarea.rows = 3;
+    textarea.style.cssText = 'width:100%;resize:vertical;padding:8px;border:1px solid #ddd;border-radius:6px;font:inherit;box-sizing:border-box;';
+    inputWrap.appendChild(textarea);
+
+    const btn = document.createElement('button');
+    btn.className = 'fixit-submit-btn';
+    btn.textContent = 'Начать чат';
+    btn.style.cssText = `width:100%;margin-top:8px;padding:10px;border:none;border-radius:6px;color:#fff;font:inherit;cursor:pointer;background:${this.settings.primary_color};`;
+    btn.addEventListener('click', () => {
+      const msg = textarea.value.trim();
+      if (!msg) return;
+      btn.disabled = true;
+      btn.textContent = 'Создание...';
+      this.handleGlpiAutoSession(msg);
+    });
+    inputWrap.appendChild(btn);
+
+    this.bodyEl.appendChild(inputWrap);
+  }
+
+  private async handleGlpiAutoSession(message: string): Promise<void> {
+    try {
+      const session = await api.createGlpiSession(this.glpiToken!, message);
+      this.sessionId = session.id;
+      this.visitorToken = session.visitor_token;
+      saveSession(session.id, session.visitor_token, this.getGlpiUserId() || undefined);
+
+      // Backend may return existing session — load messages
+      const messages = await api.getMessages(session.id, session.visitor_token).catch(() => []);
+      this.showChat(messages.length > 0 ? messages : [{
+        id: 'initial',
+        session_id: session.id,
+        sender_type: 'visitor',
+        sender_id: null,
+        content: message,
+        is_read: false,
+        created_at: session.created_at,
+        attachments: [],
+      }]);
+    } catch (err) {
+      console.warn('[FixIT] GLPI auto-session failed, showing form:', err);
+      this.showForm();
+    }
   }
 
   private showForm(): void {

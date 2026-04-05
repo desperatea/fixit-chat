@@ -105,12 +105,13 @@ make backup          # ручной бэкап БД
 
 ```
 DB_USER, DB_PASSWORD, REDIS_PASSWORD
-SECRET_KEY          — для JWT
-ENCRYPTION_KEY      — 32 bytes base64, для AES-256
-TELEGRAM_BOT_TOKEN  — бот уведомлений (отдельный от сайта)
-TELEGRAM_CHAT_ID    — куда отправлять уведомления
-SMARTCAPTCHA_KEY    — Yandex SmartCaptcha server key
-GRAFANA_PASSWORD    — пароль Grafana admin
+SECRET_KEY              — для JWT
+ENCRYPTION_KEY          — 32 bytes base64, для AES-256
+TELEGRAM_BOT_TOKEN      — бот уведомлений (отдельный от сайта)
+TELEGRAM_CHAT_ID        — куда отправлять уведомления
+SMARTCAPTCHA_KEY        — Yandex SmartCaptcha server key
+GLPI_INTEGRATION_SECRET — HMAC-SHA256 секрет для подписи GLPI-токенов
+GRAFANA_PASSWORD        — пароль Grafana admin
 ```
 
 ## Ключевые решения
@@ -122,3 +123,100 @@ GRAFANA_PASSWORD    — пароль Grafana admin
 - **Один сайт**: нет мультитенантности.
 - **Язык**: только русский, без i18n.
 - **Мобильная адаптация**: только виджет, админка — десктоп.
+
+## Интеграция с GLPI
+
+Виджет интегрируется с GLPI (helpdesk.fixitmail.ru) через плагин. Код GLPI **НЕ модифицируется** — используется только штатный механизм плагинов.
+
+### Архитектура интеграции
+
+```
+GLPI (пользователь залогинен)
+  │
+  ├─ INIT_SESSION хук → генерирует HMAC-SHA256 токен → $_SESSION
+  ├─ plugin_init → читает токен → <meta name="fixit-glpi-token">
+  ├─ ADD_JAVASCRIPT хук → widget_inject.js
+  │
+  ▼
+widget_inject.js (на странице GLPI)
+  ├─ Читает токен из <meta>
+  ├─ Подключает loader.js с data-glpi-token
+  │
+  ▼
+Виджет (ChatWindow)
+  ├─ glpiToken есть? → createGlpiSession() без формы
+  ├─ glpiToken нет?  → showForm() как обычно
+  │
+  ▼
+Backend (POST /api/v1/widget/sessions/glpi)
+  ├─ verify_glpi_token() — проверяет HMAC подпись
+  ├─ Создаёт сессию с данными из токена
+  └─ Сохраняет glpi_user_id в custom_fields
+```
+
+### Подписанный токен (HMAC-SHA256)
+
+Формат: `base64url(json_payload).hex(hmac_sha256(payload_b64, secret))`
+
+Payload содержит:
+```json
+{
+  "user_id": "7",
+  "name": "Лобойко Евгения",
+  "phone": "+79001234567",
+  "org": "Головная организация",
+  "exp": 1735689600
+}
+```
+
+Секрет (`GLPI_INTEGRATION_SECRET`) одинаковый в плагине GLPI и в `.env` бэкенда. Токен живёт 2 часа, перегенерируется при каждом логине и смене организации/профиля.
+
+### Файлы интеграции
+
+**Backend** (наш код):
+- `backend/app/services/glpi_service.py` — верификация HMAC-токена, класс `GlpiTokenData`
+- `backend/app/api/v1/widget.py` — endpoint `POST /sessions/glpi`
+- `backend/app/schemas/session.py` — схема `GlpiSessionCreate`
+
+**Widget** (наш код):
+- `widget/src/loader.ts` — парсинг `data-glpi-token`
+- `widget/src/types.ts` — `glpiToken` в `WidgetConfig`
+- `widget/src/widget.ts` — прокидывает `glpiToken` в `ChatWindow`
+- `widget/src/components/ChatWindow.ts` — `handleGlpiAutoSession()`, пропуск формы
+- `widget/src/services/api.ts` — `createGlpiSession()`
+
+**Плагин GLPI** (папка `plugins/fixitchat/` внутри GLPI, код GLPI НЕ меняется):
+```
+plugins/fixitchat/
+├── setup.php                  # Хуки: INIT_SESSION, ADD_JAVASCRIPT, ADD_HEADER_TAG
+└── js/
+    ├── widget_inject.js       # Читает meta-тег → подключает loader.js с токеном
+    └── widget_inject_anon.js  # Для страницы логина (без токена, обычная форма)
+```
+
+### Используемые хуки GLPI
+
+| Хук | Назначение |
+|-----|------------|
+| `INIT_SESSION` | Генерация токена при логине (сессия готова) |
+| `CHANGE_PROFILE` | Перегенерация при смене профиля |
+| `CHANGE_ENTITY` | Перегенерация при смене организации |
+| `ADD_JAVASCRIPT` | Подключение `widget_inject.js` на все страницы |
+| `ADD_JAVASCRIPT_ANONYMOUS_PAGE` | Подключение виджета на страницу логина |
+| `ADD_HEADER_TAG` | `<meta>` тег с токеном и URL чата |
+
+### Развёртывание на прод
+
+1. Скопировать `plugins/fixitchat/` в GLPI
+2. В `setup.php` установить `FIXIT_SECRET` и `FIXIT_CHAT_URL`
+3. В `js/*.js` установить `CHAT_URL`
+4. Настроить симлинк или Alias в веб-сервере для `plugins/` → `public/plugins/`
+5. Активировать плагин: Настройки → Плагины → FixIT Chat → Установить → Включить
+6. В `.env` FixIT Chat установить `GLPI_INTEGRATION_SECRET` (совпадает с `FIXIT_SECRET`)
+7. Добавить домен GLPI в `allowed_origins` (CORS) через админку FixIT Chat
+
+### Планы по интеграции
+
+- Создание тикетов GLPI из закрытых сессий чата (`glpi_user_id` уже сохраняется)
+- Подтягивание организации/отдела пользователя в боковую панель админки
+- SSO через GLPI (OIDC) — заложена абстракция `AuthProvider`

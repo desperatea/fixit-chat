@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as sessionsApi from '../api/sessions';
+import { notifyError } from './notificationStore';
 import type { Message, Note, Rating, Session } from '../types';
 
 interface SessionState {
@@ -46,55 +47,88 @@ export const useSessionStore = create<SessionState>((set, get) => ({
     try {
       const data = await sessionsApi.getSessions(params || {});
       set({ sessions: data.items, total: data.total, loading: false });
-    } catch {
+    } catch (err) {
       set({ loading: false });
+      notifyError(err, 'Не удалось загрузить сессии');
     }
   },
 
   fetchSession: async (id) => {
-    const session = await sessionsApi.getSession(id);
-    set({ activeSession: session });
+    try {
+      const session = await sessionsApi.getSession(id);
+      set({ activeSession: session });
+    } catch (err) {
+      notifyError(err, 'Не удалось загрузить сессию');
+    }
   },
 
   fetchMessages: async (sessionId) => {
-    const messages = await sessionsApi.getMessages(sessionId);
-    set({ messages });
+    try {
+      const messages = await sessionsApi.getMessages(sessionId);
+      set({ messages });
+    } catch (err) {
+      notifyError(err, 'Не удалось загрузить сообщения');
+    }
   },
 
   sendMessage: async (sessionId, content) => {
-    const msg = await sessionsApi.sendMessage(sessionId, content);
-    set({ messages: [...get().messages, msg] });
+    try {
+      const msg = await sessionsApi.sendMessage(sessionId, content);
+      set({ messages: [...get().messages, msg] });
+    } catch (err) {
+      notifyError(err, 'Не удалось отправить сообщение');
+    }
   },
 
   closeSession: async (id) => {
-    const session = await sessionsApi.closeSession(id);
-    set({ activeSession: session });
-    get().updateSessionInList(session);
+    try {
+      const session = await sessionsApi.closeSession(id);
+      set({ activeSession: session });
+      get().updateSessionInList(session);
+    } catch (err) {
+      notifyError(err, 'Не удалось закрыть сессию');
+    }
   },
 
   reopenSession: async (id) => {
-    const session = await sessionsApi.reopenSession(id);
-    set({ activeSession: session });
-    get().updateSessionInList(session);
+    try {
+      const session = await sessionsApi.reopenSession(id);
+      set({ activeSession: session });
+      get().updateSessionInList(session);
+    } catch (err) {
+      notifyError(err, 'Не удалось переоткрыть сессию');
+    }
   },
 
   fetchNotes: async (sessionId) => {
-    const notes = await sessionsApi.getNotes(sessionId);
-    set({ notes });
+    try {
+      const notes = await sessionsApi.getNotes(sessionId);
+      set({ notes });
+    } catch (err) {
+      notifyError(err, 'Не удалось загрузить заметки');
+    }
   },
 
   addNote: async (sessionId, content) => {
-    const note = await sessionsApi.createNote(sessionId, content);
-    set({ notes: [...get().notes, note] });
+    try {
+      const note = await sessionsApi.createNote(sessionId, content);
+      set({ notes: [...get().notes, note] });
+    } catch (err) {
+      notifyError(err, 'Не удалось добавить заметку');
+    }
   },
 
   markRead: async (sessionId, messageIds) => {
-    await sessionsApi.markRead(sessionId, messageIds);
-    set({
-      messages: get().messages.map((m) =>
-        messageIds.includes(m.id) ? { ...m, is_read: true } : m,
-      ),
-    });
+    try {
+      await sessionsApi.markRead(sessionId, messageIds);
+      set({
+        messages: get().messages.map((m) =>
+          messageIds.includes(m.id) ? { ...m, is_read: true } : m,
+        ),
+      });
+    } catch {
+      // Mark-read failure is non-critical, don't notify
+    }
   },
 
   addIncomingMessage: (msg) => {

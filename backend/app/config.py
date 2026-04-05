@@ -25,6 +25,9 @@ class Settings(BaseSettings):
     # Yandex SmartCaptcha
     smartcaptcha_key: str = ""
 
+    # GLPI integration
+    glpi_integration_secret: str = ""
+
     # File uploads
     upload_dir: str = "/app/uploads"
     max_file_size_mb: int = 10

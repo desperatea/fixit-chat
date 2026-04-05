@@ -54,6 +54,16 @@ export async function createSession(data: {
   });
 }
 
+export async function createGlpiSession(
+  glpiToken: string,
+  initialMessage: string,
+): Promise<Session> {
+  return request<Session>('/api/v1/widget/sessions/glpi', {
+    method: 'POST',
+    body: JSON.stringify({ glpi_token: glpiToken, initial_message: initialMessage }),
+  });
+}
+
 export async function getMessages(
   sessionId: string,
   token: string,

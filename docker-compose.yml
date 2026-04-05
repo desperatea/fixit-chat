@@ -36,6 +36,7 @@ services:
       - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
       - TELEGRAM_CHAT_ID=${TELEGRAM_CHAT_ID}
       - SMARTCAPTCHA_KEY=${SMARTCAPTCHA_KEY}
+      - GLPI_INTEGRATION_SECRET=${GLPI_INTEGRATION_SECRET}
     depends_on:
       postgres:
         condition: service_healthy
@@ -70,7 +71,39 @@ services:
       - widget
     restart: unless-stopped
 
+  # --- GLPI (for integration testing) ---
+  glpi-db:
+    image: mysql:8.0
+    volumes:
+      - glpi_db_data:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: glpi_root_pass
+      MYSQL_DATABASE: glpi
+      MYSQL_USER: glpi
+      MYSQL_PASSWORD: glpi_pass
+    healthcheck:
+      test: mysqladmin ping -h localhost -u root -pglpi_root_pass
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  glpi:
+    image: diouxx/glpi:latest
+    ports:
+      - "8090:80"
+    environment:
+      TIMEZONE: Europe/Moscow
+    depends_on:
+      glpi-db:
+        condition: service_healthy
+    volumes:
+      - glpi_data:/var/www/html/glpi
+    restart: unless-stopped
+
 volumes:
   postgres_data:
   redis_data:
   uploads:
+  glpi_db_data:
+  glpi_data:

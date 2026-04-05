@@ -1,16 +1,16 @@
-import json
 import uuid
 
 import structlog
 from fastapi import WebSocket
-
-from app.core.redis import get_redis
 
 logger = structlog.get_logger()
 
 # Redis pub/sub channels
 CHANNEL_SESSION = "ws:session:{session_id}"
 CHANNEL_ADMIN = "ws:admin"
+
+# Heartbeat interval in seconds (client should ping at this rate)
+HEARTBEAT_INTERVAL = 30
 
 
 class ConnectionManager:

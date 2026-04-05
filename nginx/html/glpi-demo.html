@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GLPI — Техподдержка FixIT (демо)</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            margin: 0; padding: 40px;
+            background: #f5f5f5; color: #333;
+        }
+        .container { max-width: 800px; margin: 0 auto; }
+        h1 { color: #1976d2; }
+        .card {
+            background: #fff; border-radius: 8px; padding: 24px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 20px;
+        }
+        .user-info { display: grid; grid-template-columns: 140px 1fr; gap: 8px 16px; }
+        .user-info dt { font-weight: 600; color: #666; }
+        .user-info dd { margin: 0; }
+        .token-preview {
+            font-family: monospace; font-size: 11px; color: #888;
+            word-break: break-all; margin-top: 8px;
+            padding: 8px; background: #f0f0f0; border-radius: 4px;
+        }
+        .hint {
+            color: #1976d2; font-size: 14px;
+            padding: 12px; background: #e3f2fd; border-radius: 4px;
+        }
+        .steps { margin-top: 8px; padding-left: 20px; }
+        .steps li { margin-bottom: 4px; }
+        .vs { display: flex; gap: 20px; margin-top: 20px; }
+        .vs a {
+            flex: 1; text-align: center; padding: 16px;
+            background: #1976d2; color: #fff; text-decoration: none;
+            border-radius: 8px; font-size: 16px;
+        }
+        .vs a:hover { background: #1565c0; }
+        .vs a.secondary { background: #666; }
+        .vs a.secondary:hover { background: #555; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>GLPI - Рабочий стол (демо интеграции)</h1>
+
+        <div class="card">
+            <h2>Авторизованный пользователь GLPI</h2>
+            <dl class="user-info">
+                <dt>ID:</dt><dd>5</dd>
+                <dt>Имя:</dt><dd>Петров Алексей</dd>
+                <dt>Телефон:</dt><dd>+79281234567</dd>
+                <dt>Организация:</dt><dd>ООО Ромашка</dd>
+            </dl>
+        </div>
+
+        <div class="card">
+            <h2>Как это работает</h2>
+            <p>Эта страница имитирует страницу GLPI, на которой пользователь уже авторизован.
+               Виджет чата внизу справа подключён с подписанным токеном &mdash;
+               форма ввода имени/телефона <strong>пропущена</strong>.</p>
+            <div class="token-preview" id="token-display">Генерация токена...</div>
+        </div>
+
+        <div class="hint">
+            Нажмите на кнопку чата внизу справа. Сессия создастся автоматически
+            с данными из GLPI &mdash; без формы.
+            <ol class="steps">
+                <li>GLPI знает пользователя (PHP <code>$_SESSION</code>)</li>
+                <li>Сервер генерирует HMAC-SHA256 токен с данными пользователя</li>
+                <li>Виджет получает токен через <code>data-glpi-token</code></li>
+                <li>Бэкенд проверяет подпись и создаёт сессию</li>
+            </ol>
+        </div>
+
+        <div class="vs">
+            <a href="/test">Без GLPI (обычная форма)</a>
+            <a href="/glpi-demo" class="secondary">Текущая страница (GLPI)</a>
+        </div>
+    </div>
+
+    <script>
+    // ── Данные пользователя GLPI (в проде берутся из PHP $_SESSION на сервере) ──
+    const glpiUser = {
+        user_id: "5",
+        name: "Петров Алексей",
+        phone: "+79281234567",
+        org: "ООО Ромашка",
+    };
+
+    // ── Shared secret (в проде токен генерируется на сервере PHP, а не в JS!) ──
+    const SECRET = "fixit_glpi_shared_secret_change_me_in_production";
+
+    async function generateToken(userData) {
+        const payload = { ...userData, exp: Math.floor(Date.now() / 1000) + 3600 };
+        const payloadJson = JSON.stringify(payload);
+        // base64url encode
+        const payloadB64 = btoa(unescape(encodeURIComponent(payloadJson)))
+            .replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+        // HMAC-SHA256
+        const key = await crypto.subtle.importKey(
+            'raw', new TextEncoder().encode(SECRET),
+            { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']
+        );
+        const sig = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadB64));
+        const sigHex = Array.from(new Uint8Array(sig))
+            .map(b => b.toString(16).padStart(2, '0')).join('');
+        return payloadB64 + '.' + sigHex;
+    }
+
+    (async () => {
+        const token = await generateToken(glpiUser);
+        document.getElementById('token-display').textContent =
+            'Token: ' + token.substring(0, 60) + '...';
+
+        // Inject widget with GLPI token
+        const s = document.createElement('script');
+        s.async = true;
+        s.src = '/widget/loader.js';
+        s.setAttribute('data-glpi-token', token);
+        document.body.appendChild(s);
+    })();
+    </script>
+</body>
+</html>

@@ -1,7 +1,9 @@
 import { Box, CircularProgress } from '@mui/material';
 import { useEffect } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
+import ErrorBoundary from './components/ErrorBoundary';
 import Sidebar from './components/Layout/Sidebar';
+import NotificationSnackbar from './components/NotificationSnackbar';
 import { useWebSocket } from './hooks/useWebSocket';
 import { useAuthStore } from './store/authStore';
 import AgentsPage from './pages/AgentsPage';
@@ -43,14 +45,17 @@ export default function App() {
   }, [checkAuth]);
 
   return (
-    <Routes>
-      <Route path="/admin/login" element={<LoginPage />} />
-      <Route path="/admin" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
-      <Route path="/admin/sessions" element={<ProtectedLayout><SessionListPage /></ProtectedLayout>} />
-      <Route path="/admin/sessions/:id" element={<ProtectedLayout><ChatPage /></ProtectedLayout>} />
-      <Route path="/admin/agents" element={<ProtectedLayout><AgentsPage /></ProtectedLayout>} />
-      <Route path="/admin/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
-      <Route path="*" element={<Navigate to="/admin" replace />} />
-    </Routes>
+    <ErrorBoundary>
+      <Routes>
+        <Route path="/admin/login" element={<LoginPage />} />
+        <Route path="/admin" element={<ProtectedLayout><DashboardPage /></ProtectedLayout>} />
+        <Route path="/admin/sessions" element={<ProtectedLayout><SessionListPage /></ProtectedLayout>} />
+        <Route path="/admin/sessions/:id" element={<ProtectedLayout><ChatPage /></ProtectedLayout>} />
+        <Route path="/admin/agents" element={<ProtectedLayout><AgentsPage /></ProtectedLayout>} />
+        <Route path="/admin/settings" element={<ProtectedLayout><SettingsPage /></ProtectedLayout>} />
+        <Route path="*" element={<Navigate to="/admin" replace />} />
+      </Routes>
+      <NotificationSnackbar />
+    </ErrorBoundary>
   );
 }

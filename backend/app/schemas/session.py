@@ -63,3 +63,9 @@ class SessionListResponse(BaseModel):
 
 class RatingCreate(BaseModel):
     rating: int = Field(..., ge=1, le=5)
+
+
+class GlpiSessionCreate(BaseModel):
+    """Create session from GLPI-authenticated user (signed token)."""
+    glpi_token: str = Field(..., min_length=1)
+    initial_message: str = Field(..., min_length=1, max_length=5000)

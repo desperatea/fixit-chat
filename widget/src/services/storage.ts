@@ -11,10 +11,13 @@
  */
 const PREFIX = 'fixit_chat_';
 
-export function saveSession(sessionId: string, visitorToken: string): void {
+export function saveSession(sessionId: string, visitorToken: string, glpiUserId?: string): void {
   try {
     localStorage.setItem(`${PREFIX}session_id`, sessionId);
     localStorage.setItem(`${PREFIX}visitor_token`, visitorToken);
+    if (glpiUserId) {
+      localStorage.setItem(`${PREFIX}glpi_user_id`, glpiUserId);
+    }
   } catch {
     // localStorage may be unavailable
   }
@@ -33,10 +36,19 @@ export function getSession(): { sessionId: string; visitorToken: string } | null
   return null;
 }
 
+export function getSavedGlpiUserId(): string | null {
+  try {
+    return localStorage.getItem(`${PREFIX}glpi_user_id`);
+  } catch {
+    return null;
+  }
+}
+
 export function clearSession(): void {
   try {
     localStorage.removeItem(`${PREFIX}session_id`);
     localStorage.removeItem(`${PREFIX}visitor_token`);
+    localStorage.removeItem(`${PREFIX}glpi_user_id`);
   } catch {
     // ignore
   }

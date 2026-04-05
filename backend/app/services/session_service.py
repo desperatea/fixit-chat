@@ -1,18 +1,17 @@
 import hmac
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
-from sqlalchemy import inspect
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import make_transient
 
+from app.core.encryption import decrypt
 from app.core.exceptions import BadRequestError, ForbiddenError, NotFoundError
 from app.models.session import ChatSession
 from app.repositories.message_repo import MessageRepository
 from app.repositories.rating_repo import RatingRepository
 from app.repositories.session_repo import SessionRepository
 from app.repositories.settings_repo import SettingsRepository
-from app.schemas.session import SessionCreate
+from app.schemas.session import RatingResponse, SessionCreate, SessionResponse
 from app.services.encryption_service import EncryptionService
 
 
@@ -24,23 +23,29 @@ class SessionService:
         self.message_repo = MessageRepository(db)
         self.encryption = EncryptionService()
 
-    def _decrypt_and_detach(self, session: ChatSession) -> ChatSession:
-        """Load all columns + ratings, detach from DB session, then decrypt."""
-        # Force load all column attributes to avoid DetachedInstanceError
-        inspect(session)  # ensures state is loaded
-        for col in session.__table__.columns:
-            getattr(session, col.key, None)
-        # Force load ratings relationship
-        _ = session.ratings
-        self.db.expunge(session)
-        make_transient(session)
-        self.encryption.decrypt_session(session)
-        return session
+    def _to_dto(self, session: ChatSession) -> SessionResponse:
+        """Convert ORM session to response DTO with decrypted fields."""
+        ratings = [
+            RatingResponse.model_validate(r) for r in session.ratings
+        ] if session.ratings else []
+        return SessionResponse(
+            id=session.id,
+            visitor_name=decrypt(session.visitor_name) if session.visitor_name else "",
+            visitor_phone=decrypt(session.visitor_phone) if session.visitor_phone else None,
+            visitor_org=decrypt(session.visitor_org) if session.visitor_org else None,
+            initial_message=decrypt(session.initial_message) if session.initial_message else "",
+            status=session.status,
+            ratings=ratings,
+            latest_rating=ratings[-1].rating if ratings else None,
+            consent_given=session.consent_given,
+            custom_fields=session.custom_fields,
+            closed_at=session.closed_at,
+            created_at=session.created_at,
+            updated_at=session.updated_at,
+        )
 
-    def _decrypt_and_detach_list(self, sessions: list[ChatSession]) -> list[ChatSession]:
-        for s in sessions:
-            self._decrypt_and_detach(s)
-        return sessions
+    def _to_dto_list(self, sessions: list[ChatSession]) -> list[SessionResponse]:
+        return [self._to_dto(s) for s in sessions]
 
     async def create_session(self, data: SessionCreate) -> ChatSession:
         if not data.consent_given:
@@ -74,25 +79,25 @@ class SessionService:
 
         return session
 
-    async def get_session(self, session_id: uuid.UUID) -> ChatSession:
+    async def get_session(self, session_id: uuid.UUID) -> SessionResponse:
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise NotFoundError("Сессия не найдена")
-        return self._decrypt_and_detach(session)
+        return self._to_dto(session)
 
-    async def get_session_by_token(self, visitor_token: str) -> ChatSession:
+    async def get_session_by_token(self, visitor_token: str) -> SessionResponse:
         session = await self.session_repo.get_by_visitor_token(visitor_token)
         if not session:
             raise NotFoundError("Сессия не найдена")
-        return self._decrypt_and_detach(session)
+        return self._to_dto(session)
 
-    async def verify_visitor_access(self, session_id: uuid.UUID, visitor_token: str) -> ChatSession:
+    async def verify_visitor_access(self, session_id: uuid.UUID, visitor_token: str) -> None:
+        """Validate visitor token. Raises ForbiddenError/NotFoundError on failure."""
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise NotFoundError("Сессия не найдена")
         if not hmac.compare_digest(session.visitor_token, visitor_token):
             raise ForbiddenError("Нет доступа к этой сессии")
-        return self._decrypt_and_detach(session)
 
     async def get_list(
         self,
@@ -101,15 +106,15 @@ class SessionService:
         search: str | None = None,
         offset: int = 0,
         limit: int = 50,
-    ) -> tuple[list[ChatSession], int]:
+    ) -> tuple[list[SessionResponse], int]:
         if search:
             # Search requires decryption — load all, decrypt, filter in Python
             all_sessions = await self.session_repo.get_all_for_search(status=status)
-            self._decrypt_and_detach_list(all_sessions)
+            all_dtos = self._to_dto_list(all_sessions)
 
             query = search.lower()
             filtered = [
-                s for s in all_sessions
+                s for s in all_dtos
                 if query in (s.visitor_name or "").lower()
                 or query in (s.visitor_phone or "").lower()
                 or query in (s.visitor_org or "").lower()
@@ -121,10 +126,9 @@ class SessionService:
         sessions, total = await self.session_repo.get_list(
             status=status, offset=offset, limit=limit,
         )
-        self._decrypt_and_detach_list(sessions)
-        return sessions, total
+        return self._to_dto_list(sessions), total
 
-    async def close_session(self, session_id: uuid.UUID) -> ChatSession:
+    async def close_session(self, session_id: uuid.UUID) -> SessionResponse:
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise NotFoundError("Сессия не найдена")
@@ -145,13 +149,13 @@ class SessionService:
         )
 
         await self.session_repo.update(
-            session, status="closed", closed_at=datetime.now(timezone.utc),
+            session, status="closed", closed_at=datetime.now(UTC),
         )
         # Re-fetch with ratings eagerly loaded
         session = await self.session_repo.get_by_id(session_id)
-        return self._decrypt_and_detach(session)
+        return self._to_dto(session)
 
-    async def reopen_session(self, session_id: uuid.UUID) -> ChatSession:
+    async def reopen_session(self, session_id: uuid.UUID) -> SessionResponse:
         session = await self.session_repo.get_by_id(session_id)
         if not session:
             raise NotFoundError("Сессия не найдена")
@@ -160,7 +164,7 @@ class SessionService:
 
         await self.session_repo.update(session, status="open", closed_at=None)
         session = await self.session_repo.get_by_id(session_id)
-        return self._decrypt_and_detach(session)
+        return self._to_dto(session)
 
     async def rate_session(self, session_id: uuid.UUID, rating: int):
         """Create a new rating entry for the session. Returns the created rating."""

@@ -19,6 +19,7 @@ class SessionRepository(SoftDeleteRepository[ChatSession]):
             select(ChatSession)
             .options(selectinload(ChatSession.ratings))
             .where(ChatSession.id == session_id)
+            .execution_options(populate_existing=True)
         )
         if not include_deleted:
             stmt = stmt.where(ChatSession.deleted_at.is_(None))
@@ -63,9 +64,17 @@ class SessionRepository(SoftDeleteRepository[ChatSession]):
 
         total = (await self.session.execute(count_stmt)).scalar_one()
 
+        # Sort by latest message time (sessions with new messages first)
+        latest_msg = (
+            select(func.max(Message.created_at))
+            .where(Message.session_id == ChatSession.id)
+            .correlate(ChatSession)
+            .scalar_subquery()
+        )
+
         stmt = (
             base.options(selectinload(ChatSession.ratings))
-            .order_by(ChatSession.created_at.desc())
+            .order_by(func.coalesce(latest_msg, ChatSession.created_at).desc())
             .offset(offset).limit(limit)
         )
         result = await self.session.execute(stmt)
@@ -90,6 +99,22 @@ class SessionRepository(SoftDeleteRepository[ChatSession]):
         stmt = stmt.order_by(ChatSession.created_at.desc()).limit(max_rows)
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def get_open_by_glpi_user(self, glpi_user_id: str) -> ChatSession | None:
+        """Find an open session for a GLPI user by glpi_user_id in custom_fields."""
+        stmt = (
+            select(ChatSession)
+            .options(selectinload(ChatSession.ratings))
+            .where(
+                ChatSession.deleted_at.is_(None),
+                ChatSession.status == "open",
+                ChatSession.custom_fields["glpi_user_id"].astext == glpi_user_id,
+            )
+            .order_by(ChatSession.created_at.desc())
+            .limit(1)
+        )
+        result = await self.session.execute(stmt)
+        return result.scalar_one_or_none()
 
     async def get_open_inactive_since(self, since: datetime) -> list[ChatSession]:
         """Get open sessions with no messages after `since`."""

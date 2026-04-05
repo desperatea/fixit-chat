@@ -42,11 +42,12 @@ export interface Attachment {
 }
 
 export interface WSEvent {
-  type: 'message' | 'typing' | 'read' | 'session_closed' | 'session_reopened' | 'new_message' | 'auth_ok' | 'error';
+  type: 'message' | 'typing' | 'read' | 'session_closed' | 'session_reopened' | 'new_message' | 'auth_ok' | 'error' | 'ping' | 'pong';
   data: Record<string, unknown>;
 }
 
 export interface WidgetConfig {
   apiUrl: string;
   wsUrl: string;
+  glpiToken?: string;
 }

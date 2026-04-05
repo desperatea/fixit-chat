@@ -5,10 +5,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_db
 from app.api.ws.manager import manager
-from app.core.exceptions import ForbiddenError
 from app.repositories.settings_repo import SettingsRepository
 from app.schemas.message import MessageCreate, MessageResponse, ReadMessagesRequest
-from app.schemas.session import RatingCreate, RatingResponse, SessionCreate, SessionCreateResponse, SessionResponse
+from app.schemas.session import (
+    GlpiSessionCreate, RatingCreate, RatingResponse,
+    SessionCreate, SessionCreateResponse, SessionResponse,
+)
+from app.services.glpi_service import verify_glpi_token
 from app.schemas.settings import WidgetSettingsResponse
 from app.services.message_service import MessageService
 from app.services.notification_service import NotificationService
@@ -30,6 +33,8 @@ async def create_session(
 ):
     service = SessionService(db)
     session = await service.create_session(data)
+
+    await db.commit()
 
     # Notify agents about new session
     await manager.send_to_agents({
@@ -53,14 +58,66 @@ async def create_session(
     )
 
 
-def _build_session_response(session, unread: int = 0) -> SessionResponse:
-    """Build SessionResponse with ratings from a decrypted session."""
-    resp = SessionResponse.model_validate(session)
-    resp.unread_count = unread
-    if session.ratings:
-        resp.ratings = [RatingResponse.model_validate(r) for r in session.ratings]
-        resp.latest_rating = session.ratings[-1].rating
-    return resp
+@router.post("/sessions/glpi", response_model=SessionCreateResponse, status_code=201)
+async def create_glpi_session(
+    data: GlpiSessionCreate,
+    db: AsyncSession = Depends(get_db),
+):
+    """Create or resume session for GLPI-authenticated user.
+
+    If the user already has an open session — returns it (same session from any PC).
+    Otherwise creates a new one.
+    """
+    glpi_user = verify_glpi_token(data.glpi_token)
+
+    # Check for existing open session for this GLPI user
+    from app.repositories.session_repo import SessionRepository
+    repo = SessionRepository(db)
+    existing = await repo.get_open_by_glpi_user(glpi_user.user_id)
+
+    if existing:
+        return SessionCreateResponse(
+            id=existing.id,
+            visitor_token=existing.visitor_token,
+            status=existing.status,
+            created_at=existing.created_at,
+        )
+
+    # No open session — create new one
+    session_data = SessionCreate(
+        visitor_name=glpi_user.name,
+        visitor_phone=glpi_user.phone,
+        visitor_org=glpi_user.org,
+        initial_message=data.initial_message,
+        consent_given=True,
+        custom_fields={"glpi_user_id": glpi_user.user_id},
+    )
+
+    service = SessionService(db)
+    session = await service.create_session(session_data)
+
+    await db.commit()
+
+    await manager.send_to_agents({
+        "type": "new_session",
+        "data": {
+            "session_id": str(session.id),
+            "visitor_name": glpi_user.name,
+            "initial_message": data.initial_message,
+            "created_at": str(session.created_at),
+        },
+    })
+
+    await NotificationService.notify_new_session(
+        glpi_user.name, data.initial_message,
+    )
+
+    return SessionCreateResponse(
+        id=session.id,
+        visitor_token=session.visitor_token,
+        status=session.status,
+        created_at=session.created_at,
+    )
 
 
 @router.get("/sessions/{session_id}", response_model=SessionResponse)
@@ -70,9 +127,10 @@ async def get_session(
     db: AsyncSession = Depends(get_db),
 ):
     service = SessionService(db)
-    session = await service.verify_visitor_access(session_id, x_visitor_token)
-    unread = await service.get_unread_count(session_id)
-    return _build_session_response(session, unread)
+    await service.verify_visitor_access(session_id, x_visitor_token)
+    session = await service.get_session(session_id)
+    session.unread_count = await service.get_unread_count(session_id)
+    return session
 
 
 @router.get("/sessions/{session_id}/messages", response_model=list[MessageResponse])
@@ -103,6 +161,8 @@ async def send_message(
     msg_service = MessageService(db)
     message, _ = await msg_service.send_message(session_id, data.content, "visitor")
 
+    await db.commit()
+
     # Notify agents via WebSocket
     await manager.send_to_agents({
         "type": "new_message",
@@ -129,6 +189,9 @@ async def close_session(
     await session_service.verify_visitor_access(session_id, x_visitor_token)
 
     session = await session_service.close_session(session_id)
+
+    # Commit before WS notification so agents can fetch updated data immediately
+    await db.commit()
 
     # Notify agents
     await manager.send_to_agents({
@@ -165,6 +228,8 @@ async def rate_session(
 
     rating_entry = await session_service.rate_session(session_id, data.rating)
 
+    await db.commit()
+
     # Notify agents
     await manager.send_to_agents({
         "type": "session_rated",
@@ -189,7 +254,9 @@ async def reopen_session(
     await session_service.verify_visitor_access(session_id, x_visitor_token)
 
     session = await session_service.reopen_session(session_id)
-    unread = await session_service.get_unread_count(session_id)
+    session.unread_count = await session_service.get_unread_count(session_id)
+
+    await db.commit()
 
     # Notify agents
     reopen_event = {
@@ -198,4 +265,4 @@ async def reopen_session(
     }
     await manager.send_to_agents(reopen_event)
 
-    return _build_session_response(session, unread)
+    return session

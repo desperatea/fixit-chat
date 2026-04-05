@@ -1,7 +1,7 @@
 from datetime import date, timedelta
 
 from fastapi import APIRouter, Depends, Query
-from sqlalchemy import func, select
+from sqlalchemy import Date, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.deps import get_current_agent, get_db
@@ -64,7 +64,7 @@ async def get_daily_stats(
         )
         .where(
             ChatSession.deleted_at.is_(None),
-            func.cast(ChatSession.created_at, func.date.__class__) >= since,
+            func.cast(ChatSession.created_at, Date) >= since,
         )
         .group_by("day")
         .order_by("day")

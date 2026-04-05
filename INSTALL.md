@@ -225,3 +225,157 @@ make create-admin
 **Для демо в офисной сети тестовый режим полностью безопасен** — трафик не выходит в интернет.
 
 Для перехода на продакшен нужно: добавить DNS-запись `chat.fixitmail.ru`, настроить SSL, заполнить CORS/IP whitelist/Telegram в настройках админки.
+
+---
+
+## Интеграция с GLPI
+
+Виджет встраивается в GLPI через плагин. Код GLPI **не модифицируется**. Если пользователь авторизован в GLPI — виджет определяет его автоматически (имя, телефон, организация), форма ввода данных пропускается.
+
+### Что нужно
+
+- GLPI 10.0+ установленная и работающая
+- Доступ к файловой системе сервера GLPI (для установки плагина)
+- Доступ к конфигурации веб-сервера (Apache или nginx)
+- Работающий FixIT Chat (этот проект)
+
+### Шаг 1: Сгенерировать общий секрет
+
+Секрет используется для подписи токенов между GLPI и FixIT Chat:
+```bash
+python3 -c "import secrets; print(secrets.token_hex(32))"
+```
+Запомните значение — оно нужно на шагах 2 и 3.
+
+### Шаг 2: Настроить FixIT Chat
+
+В файле `.env` добавить/изменить:
+```
+GLPI_INTEGRATION_SECRET=сгенерированный_секрет_из_шага_1
+```
+
+Перезапустить backend:
+```bash
+docker compose up -d --build backend
+```
+
+В админке FixIT Chat (Настройки → Разрешённые домены) добавить домен GLPI, например:
+```
+https://helpdesk.fixitmail.ru
+```
+
+### Шаг 3: Установить плагин в GLPI
+
+Скопировать папку плагина на сервер GLPI:
+```bash
+# Из директории проекта fixit-chat
+scp -r glpi/fixitchat user@glpi-server:/var/www/html/glpi/plugins/
+```
+
+> **Примечание:** Актуальная версия плагина лежит внутри контейнера GLPI в dev-окружении.
+> Для прода используйте файлы из `glpi/` директории проекта или скопируйте из контейнера:
+> ```bash
+> docker compose cp glpi:/var/www/html/glpi/plugins/fixitchat ./fixitchat_plugin
+> ```
+
+### Шаг 4: Настроить плагин
+
+Отредактировать файл `plugins/fixitchat/setup.php` на сервере GLPI:
+
+```php
+// Секрет — ДОЛЖЕН совпадать с GLPI_INTEGRATION_SECRET из .env FixIT Chat
+define("FIXIT_SECRET", "сгенерированный_секрет_из_шага_1");
+
+// URL, по которому пользователь в браузере обращается к FixIT Chat
+define("FIXIT_CHAT_URL", "https://chat.fixitmail.ru");
+```
+
+Отредактировать `plugins/fixitchat/js/widget_inject.js` и `widget_inject_anon.js`:
+```javascript
+var CHAT_URL = "https://chat.fixitmail.ru";
+```
+
+### Шаг 5: Настроить веб-сервер GLPI
+
+GLPI 10+ обслуживает запросы через `public/index.php`. Статика плагинов должна быть доступна через `public/plugins/`.
+
+**Вариант A — Симлинк** (просто, работает):
+```bash
+ln -sf /var/www/html/glpi/plugins /var/www/html/glpi/public/plugins
+```
+
+**Вариант B — Alias в Apache** (чище, не трогает файлы GLPI):
+```apache
+# Добавить в конфигурацию виртуального хоста GLPI
+Alias /plugins /var/www/html/glpi/plugins
+<Directory /var/www/html/glpi/plugins>
+    Require all granted
+</Directory>
+```
+
+**Вариант B — Alias в nginx** (если GLPI за nginx):
+```nginx
+location /plugins/ {
+    alias /var/www/html/glpi/plugins/;
+}
+```
+
+После изменений перезагрузить веб-сервер:
+```bash
+sudo systemctl reload apache2   # или nginx
+```
+
+### Шаг 6: Установить права
+
+```bash
+chown -R www-data:www-data /var/www/html/glpi/plugins/fixitchat/
+chmod -R 755 /var/www/html/glpi/plugins/fixitchat/
+```
+
+### Шаг 7: Активировать плагин в GLPI
+
+1. Залогиниться в GLPI под администратором
+2. Перейти в **Настройки → Плагины**
+3. Найти **FixIT Chat** → нажать **Установить** → **Включить**
+
+### Шаг 8: Очистить кеш GLPI
+
+```bash
+php /var/www/html/glpi/bin/console glpi:system:clear_cache --env=production
+```
+
+### Проверка
+
+1. Залогиниться в GLPI обычным пользователем
+2. В правом нижнем углу должна появиться кнопка чата
+3. Нажать на неё — чат откроется **без формы**, данные подтянутся из GLPI
+4. Отправить сообщение — оно появится в админке FixIT Chat с именем и организацией из GLPI
+
+### Что видит агент в админке
+
+В сессии, созданной через GLPI, агент видит:
+- **Имя** — из профиля GLPI
+- **Телефон** — из профиля GLPI (если заполнен)
+- **Организация** — текущая Entity пользователя GLPI
+- **custom_fields.glpi_user_id** — ID пользователя в GLPI (для будущей интеграции с тикетами)
+
+### Решение проблем
+
+**Виджет не появляется на странице GLPI:**
+- Проверить статус плагина: Настройки → Плагины → FixIT Chat = «Включён»
+- Проверить консоль браузера (F12 → Console) на ошибки
+- Проверить что `widget_inject.js` загружается (F12 → Network → фильтр `fixit`)
+- Если двойной `Access-Control-Allow-Origin` — настроить `proxy_hide_header` в nginx
+
+**Виджет показывает форму вместо авто-идентификации:**
+- Разлогиниться и залогиниться в GLPI заново (токен генерируется при логине)
+- Проверить `<meta name="fixit-glpi-token">` в HTML страницы (F12 → Elements → поиск `fixit`)
+- Проверить что секреты совпадают в `setup.php` и `.env`
+
+**Ошибка «Invalid GLPI token signature» в FixIT Chat:**
+- Секреты `FIXIT_SECRET` в плагине и `GLPI_INTEGRATION_SECRET` в `.env` не совпадают
+
+**Плагин деактивируется после изменений:**
+- GLPI деактивирует плагин при изменении версии в `setup.php`
+- Зайти в Настройки → Плагины → Обновить → Включить
+- Очистить кеш: `php bin/console glpi:system:clear_cache --env=production`

@@ -7,20 +7,11 @@ from app.api.deps import get_current_agent, get_db
 from app.api.ws.manager import manager
 from app.models.agent import Agent
 from app.schemas.message import MessageCreate, MessageResponse, ReadMessagesRequest
-from app.schemas.session import RatingResponse, SessionListResponse, SessionResponse, SessionUpdate
+from app.schemas.session import SessionListResponse, SessionResponse, SessionUpdate
 from app.services.message_service import MessageService
 from app.services.session_service import SessionService
 
 router = APIRouter(prefix="/sessions", tags=["admin-sessions"])
-
-
-def _build_session_response(session, unread: int = 0) -> SessionResponse:
-    resp = SessionResponse.model_validate(session)
-    resp.unread_count = unread
-    if session.ratings:
-        resp.ratings = [RatingResponse.model_validate(r) for r in session.ratings]
-        resp.latest_rating = session.ratings[-1].rating
-    return resp
 
 
 @router.get("", response_model=SessionListResponse)
@@ -36,12 +27,10 @@ async def list_sessions(
     sessions, total = await service.get_list(
         status=status, search=search, offset=offset, limit=limit,
     )
-    items = []
     for s in sessions:
-        unread = await service.get_unread_count(s.id)
-        items.append(_build_session_response(s, unread))
+        s.unread_count = await service.get_unread_count(s.id)
 
-    return SessionListResponse(items=items, total=total, offset=offset, limit=limit)
+    return SessionListResponse(items=sessions, total=total, offset=offset, limit=limit)
 
 
 @router.get("/{session_id}", response_model=SessionResponse)
@@ -52,8 +41,8 @@ async def get_session(
 ):
     service = SessionService(db)
     session = await service.get_session(session_id)
-    unread = await service.get_unread_count(session_id)
-    return _build_session_response(session, unread)
+    session.unread_count = await service.get_unread_count(session_id)
+    return session
 
 
 @router.patch("/{session_id}", response_model=SessionResponse)
@@ -66,12 +55,14 @@ async def update_session(
     service = SessionService(db)
     if data.status == "closed":
         session = await service.close_session(session_id)
+        await db.commit()
         await manager.send_to_visitor(session_id, {
             "type": "session_closed",
             "data": {"session_id": str(session_id)},
         })
     elif data.status == "open":
         session = await service.reopen_session(session_id)
+        await db.commit()
         reopen_event = {
             "type": "session_reopened",
             "data": {"session_id": str(session_id)},
@@ -106,6 +97,8 @@ async def send_message(
     message, reopened = await msg_service.send_message(
         session_id, data.content, "agent", sender_id=agent.id, allow_reopen=True,
     )
+
+    await db.commit()
 
     if reopened:
         reopen_event = {

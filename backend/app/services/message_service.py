@@ -1,11 +1,14 @@
 import uuid
 
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import make_transient
 
+from app.core.encryption import decrypt
 from app.core.exceptions import ForbiddenError, NotFoundError
+from app.models.message import Message
 from app.repositories.message_repo import MessageRepository
 from app.repositories.session_repo import SessionRepository
+from app.schemas.attachment import AttachmentResponse
+from app.schemas.message import MessageResponse
 from app.services.encryption_service import EncryptionService
 
 
@@ -16,6 +19,35 @@ class MessageService:
         self.session_repo = SessionRepository(db)
         self.encryption = EncryptionService()
 
+    @staticmethod
+    def _to_dto(
+        message: Message,
+        decrypted_content: str | None = None,
+        *,
+        attachments_loaded: bool = True,
+    ) -> MessageResponse:
+        """Convert ORM message to response DTO.
+
+        Set attachments_loaded=False for freshly created messages where the
+        relationship hasn't been eagerly loaded (avoids lazy-load in async).
+        """
+        content = decrypted_content if decrypted_content is not None else decrypt(message.content)
+        attachments = (
+            [AttachmentResponse.model_validate(a) for a in message.attachments]
+            if attachments_loaded and message.attachments else []
+        )
+        return MessageResponse(
+            id=message.id,
+            session_id=message.session_id,
+            sender_type=message.sender_type,
+            sender_id=message.sender_id,
+            content=content,
+            is_read=message.is_read,
+            read_at=message.read_at,
+            created_at=message.created_at,
+            attachments=attachments,
+        )
+
     async def send_message(
         self,
         session_id: uuid.UUID,
@@ -24,8 +56,8 @@ class MessageService:
         sender_id: uuid.UUID | None = None,
         *,
         allow_reopen: bool = False,
-    ) -> tuple:
-        """Send a message. Returns (message, reopened: bool).
+    ) -> tuple[MessageResponse, bool]:
+        """Send a message. Returns (MessageResponse, reopened: bool).
 
         If session is closed:
         - allow_reopen=True + sender_type="agent" → auto-reopen session
@@ -52,13 +84,7 @@ class MessageService:
             content=encrypted_content,
         )
 
-        # Detach and set decrypted content for response
-        for col in message.__table__.columns:
-            getattr(message, col.key, None)
-        self.db.expunge(message)
-        make_transient(message)
-        message.content = content
-        return message, reopened
+        return self._to_dto(message, decrypted_content=content, attachments_loaded=False), reopened
 
     async def get_messages(
         self,
@@ -66,17 +92,11 @@ class MessageService:
         *,
         offset: int = 0,
         limit: int = 100,
-    ):
+    ) -> list[MessageResponse]:
         messages = await self.message_repo.get_by_session(
             session_id, offset=offset, limit=limit,
         )
-        for msg in messages:
-            for col in msg.__table__.columns:
-                getattr(msg, col.key, None)
-            self.db.expunge(msg)
-            make_transient(msg)
-            msg.content = self.encryption.decrypt_message_content(msg.content)
-        return messages
+        return [self._to_dto(msg) for msg in messages]
 
     async def mark_as_read(
         self,

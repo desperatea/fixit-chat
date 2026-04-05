@@ -7,12 +7,15 @@ interface AuthMessage {
   data: Record<string, unknown>;
 }
 
+const HEARTBEAT_INTERVAL = 30000; // 30 seconds
+
 export class WebSocketClient {
   private ws: WebSocket | null = null;
   private url: string;
   private authMessage: AuthMessage | null;
   private handlers: EventHandler[] = [];
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
   private closed = false;
@@ -39,13 +42,14 @@ export class WebSocketClient {
       if (this.authMessage && this.ws) {
         this.ws.send(JSON.stringify(this.authMessage));
       }
+      this.startHeartbeat();
     };
 
     this.ws.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data) as WSEvent;
-        // Skip auth_ok / error responses from handshake
-        if (data.type === 'auth_ok') return;
+        // Skip auth_ok / pong responses
+        if (data.type === 'auth_ok' || data.type === 'pong') return;
         this.handlers.forEach((h) => h(data));
       } catch {
         // ignore invalid messages
@@ -53,6 +57,7 @@ export class WebSocketClient {
     };
 
     this.ws.onclose = () => {
+      this.stopHeartbeat();
       if (!this.closed) {
         this.scheduleReconnect();
       }
@@ -79,12 +84,29 @@ export class WebSocketClient {
 
   disconnect(): void {
     this.closed = true;
+    this.stopHeartbeat();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
     this.ws?.close();
     this.ws = null;
+  }
+
+  private startHeartbeat(): void {
+    this.stopHeartbeat();
+    this.heartbeatTimer = setInterval(() => {
+      if (this.ws?.readyState === WebSocket.OPEN) {
+        this.ws.send(JSON.stringify({ type: 'ping', data: {} }));
+      }
+    }, HEARTBEAT_INTERVAL);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
   }
 
   private scheduleReconnect(): void {

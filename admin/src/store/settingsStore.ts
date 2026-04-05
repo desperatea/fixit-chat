@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import * as settingsApi from '../api/settings';
+import { notifyError } from './notificationStore';
 import type { WidgetSettings } from '../types';
 
 interface SettingsState {
@@ -18,8 +19,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     try {
       const settings = await settingsApi.getSettings();
       set({ settings, loading: false });
-    } catch {
+    } catch (err) {
       set({ loading: false });
+      notifyError(err, 'Не удалось загрузить настройки');
     }
   },
 
@@ -28,8 +30,9 @@ export const useSettingsStore = create<SettingsState>((set) => ({
     try {
       const settings = await settingsApi.updateSettings(data);
       set({ settings, loading: false });
-    } catch {
+    } catch (err) {
       set({ loading: false });
+      notifyError(err, 'Не удалось сохранить настройки');
     }
   },
 }));

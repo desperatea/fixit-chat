@@ -35,7 +35,9 @@ export class FixitChatWidget {
       wrapper.appendChild(this.fab.render());
 
       // Chat window
-      this.chatWindow = new ChatWindow(settings, this.config.wsUrl);
+      this.chatWindow = new ChatWindow(
+        settings, this.config.wsUrl, this.config.glpiToken,
+      );
       wrapper.appendChild(this.chatWindow.render());
     } catch (err) {
       console.error('[FixIT Chat] Failed to load settings:', err);
@@ -59,6 +61,7 @@ if (root) {
   const config: WidgetConfig = {
     apiUrl: root.dataset.apiUrl || window.location.origin,
     wsUrl: root.dataset.wsUrl || window.location.origin.replace('http', 'ws'),
+    glpiToken: root.dataset.glpiToken || undefined,
   };
   new FixitChatWidget(root, config);
 }

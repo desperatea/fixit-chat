@@ -1,3 +1,4 @@
+import json
 import uuid
 
 import structlog
@@ -47,8 +48,17 @@ async def visitor_ws(
 
     try:
         while True:
-            data = await ws.receive_json()
+            raw = await ws.receive_text()
+            try:
+                data = json.loads(raw)
+            except (json.JSONDecodeError, ValueError):
+                continue  # ignore malformed JSON
             msg_type = data.get("type")
+
+            # Heartbeat: respond to ping with pong
+            if msg_type == "ping":
+                await ws.send_json({"type": "pong", "data": {}})
+                continue
 
             if msg_type == "message":
                 content = data.get("data", {}).get("content", "").strip()
@@ -60,7 +70,8 @@ async def visitor_ws(
                     try:
                         message, _ = await svc.send_message(session_id, content, "visitor")
                     except Exception as e:
-                        await ws.send_json({"type": "error", "data": {"message": str(e.detail if hasattr(e, 'detail') else e)}})
+                        detail = e.detail if hasattr(e, "detail") else str(e)
+                        await ws.send_json({"type": "error", "data": {"message": str(detail)}})
                         continue
                     await db.commit()
 
