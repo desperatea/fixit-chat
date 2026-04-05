@@ -1,4 +1,5 @@
 import {
+  Backup as BackupIcon,
   Chat as ChatIcon,
   Dashboard as DashboardIcon,
   Logout as LogoutIcon,
@@ -24,6 +25,7 @@ const menuItems = [
   { path: '/admin/sessions', label: 'Сессии', icon: <ChatIcon /> },
   { path: '/admin/agents', label: 'Агенты', icon: <PeopleIcon /> },
   { path: '/admin/settings', label: 'Настройки', icon: <SettingsIcon /> },
+  { path: '/admin/backups', label: 'Бэкапы', icon: <BackupIcon /> },
 ];
 
 export default function Sidebar() {

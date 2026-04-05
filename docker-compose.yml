@@ -44,6 +44,8 @@ services:
         condition: service_healthy
     volumes:
       - uploads:/app/uploads
+      - ./scripts:/scripts:ro
+      - ./backups:/backups
     restart: unless-stopped
 
   admin:

@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import agents, auth, notes, sessions, settings, stats, widget
+from app.api.v1 import agents, auth, backup, notes, sessions, settings, stats, widget
 
 v1_router = APIRouter()
 
@@ -15,6 +15,7 @@ admin_router.include_router(notes.router)
 admin_router.include_router(agents.router)
 admin_router.include_router(settings.router)
 admin_router.include_router(stats.router)
+admin_router.include_router(backup.router)
 
 v1_router.include_router(admin_router)
 
