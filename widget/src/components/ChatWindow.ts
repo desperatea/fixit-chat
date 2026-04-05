@@ -213,6 +213,11 @@ export class ChatWindow {
     this.state = 'chat';
     this.bodyEl.innerHTML = '';
 
+    // Set auth context for file download URLs
+    if (this.visitorToken) {
+      this.messageList.setContext(this.wsUrl.replace(/^ws/, 'http'), this.visitorToken);
+    }
+
     this.bodyEl.appendChild(this.messageList.render());
 
     // Close session button
@@ -384,7 +389,8 @@ export class ChatWindow {
   private async handleFile(file: File): Promise<void> {
     if (!this.sessionId || !this.visitorToken) return;
     try {
-      await api.uploadFile(this.sessionId, this.visitorToken, file);
+      const msg = await api.uploadFile(this.sessionId, this.visitorToken, file);
+      this.messageList.appendMessage(msg);
     } catch (err) {
       alert(err instanceof Error ? err.message : 'Ошибка загрузки');
     }
@@ -442,7 +448,7 @@ export class ChatWindow {
       content: data.content as string,
       is_read: false,
       created_at: data.created_at as string,
-      attachments: [],
+      attachments: (data.attachments as Message['attachments']) || [],
     };
 
     this.messageList.appendMessage(msg);

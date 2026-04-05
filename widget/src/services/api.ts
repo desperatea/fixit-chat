@@ -133,7 +133,7 @@ export async function uploadFile(
   sessionId: string,
   token: string,
   file: File,
-): Promise<unknown> {
+): Promise<Message> {
   const formData = new FormData();
   formData.append('file', file);
 
@@ -142,6 +142,9 @@ export async function uploadFile(
     headers: { 'X-Visitor-Token': token },
     body: formData,
   });
-  if (!res.ok) throw new Error('Ошибка загрузки файла');
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail || 'Ошибка загрузки файла');
+  }
   return res.json();
 }

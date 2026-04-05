@@ -1,7 +1,10 @@
 import uuid
 
-from fastapi import APIRouter, Depends, Header
+from fastapi import APIRouter, Depends, File, Header, Query, UploadFile
+from fastapi.responses import FileResponse
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.api.deps import get_db
 from app.api.ws.manager import manager
@@ -11,6 +14,9 @@ from app.schemas.session import (
     GlpiSessionCreate, RatingCreate, RatingResponse,
     SessionCreate, SessionCreateResponse, SessionResponse,
 )
+from app.core.exceptions import NotFoundError
+from app.models.attachment import Attachment
+from app.services.file_service import FileService
 from app.services.glpi_service import verify_glpi_token
 from app.schemas.settings import WidgetSettingsResponse
 from app.services.message_service import MessageService
@@ -266,3 +272,103 @@ async def reopen_session(
     await manager.send_to_agents(reopen_event)
 
     return session
+
+
+@router.post("/sessions/{session_id}/files", response_model=MessageResponse, status_code=201)
+async def upload_file(
+    session_id: uuid.UUID,
+    file: UploadFile = File(...),
+    x_visitor_token: str = Header(...),
+    db: AsyncSession = Depends(get_db),
+):
+    """Upload a file from visitor. Creates a message with attachment."""
+    session_service = SessionService(db)
+    await session_service.verify_visitor_access(session_id, x_visitor_token)
+
+    # Get file settings from widget config
+    settings_repo = SettingsRepository(db)
+    widget_settings = await settings_repo.get()
+
+    # Create message for the file
+    msg_service = MessageService(db)
+    message, _ = await msg_service.send_message(session_id, "(файл)", "visitor")
+
+    # Upload and attach file
+    file_svc = FileService(
+        db,
+        allowed_types=widget_settings.allowed_file_types,
+        max_size_mb=widget_settings.max_file_size_mb,
+    )
+    attachment = await file_svc.upload(file, message.id)
+
+    await db.commit()
+
+    # Build response with attachment
+    from app.schemas.attachment import AttachmentResponse
+    att_resp = AttachmentResponse.model_validate(attachment)
+    message.attachments = [att_resp]
+
+    # Notify agents
+    await manager.send_to_agents({
+        "type": "new_message",
+        "data": {
+            "session_id": str(session_id),
+            "id": str(message.id),
+            "content": message.content,
+            "sender_type": "visitor",
+            "sender_id": None,
+            "created_at": str(message.created_at),
+            "attachments": [{
+                "id": str(attachment.id),
+                "file_name": attachment.file_name,
+                "file_size": attachment.file_size,
+                "mime_type": attachment.mime_type,
+            }],
+        },
+    })
+
+    return message
+
+
+@router.get("/sessions/{session_id}/files/{attachment_id}")
+async def download_file(
+    session_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    token: str | None = Query(None),
+    x_visitor_token: str | None = Header(None),
+    db: AsyncSession = Depends(get_db),
+):
+    """Download a file. Token accepted via header or query param (for img src)."""
+    visitor_token = x_visitor_token or token
+    if not visitor_token:
+        from app.core.exceptions import UnauthorizedError
+        raise UnauthorizedError("Требуется токен доступа")
+
+    session_service = SessionService(db)
+    await session_service.verify_visitor_access(session_id, visitor_token)
+
+    # Find attachment and verify it belongs to this session
+    stmt = (
+        select(Attachment)
+        .options(selectinload(Attachment.message))
+        .where(Attachment.id == attachment_id)
+    )
+    result = await db.execute(stmt)
+    attachment = result.scalar_one_or_none()
+
+    if not attachment or attachment.message.session_id != session_id:
+        raise NotFoundError("Файл не найден")
+
+    file_path = FileService.get_file_path(attachment)
+    disposition = "inline" if attachment.mime_type.startswith("image/") else "attachment"
+
+    from urllib.parse import quote
+    encoded_name = quote(attachment.file_name)
+
+    return FileResponse(
+        path=file_path,
+        media_type=attachment.mime_type,
+        headers={
+            "Content-Disposition": f"{disposition}; filename*=UTF-8''{encoded_name}",
+        },
+    )

@@ -1,11 +1,13 @@
-import { Close as CloseIcon, Refresh as RefreshIcon, Send as SendIcon } from '@mui/icons-material';
+import { AttachFile as AttachIcon, Close as CloseIcon, Refresh as RefreshIcon, Send as SendIcon } from '@mui/icons-material';
 import {
   Box, Button, Chip, Divider, IconButton, Paper, TextField, Typography,
 } from '@mui/material';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import Header from '../components/Layout/Header';
+import { uploadFile } from '../api/sessions';
 import { useSessionStore } from '../store/sessionStore';
+import { notifyError } from '../store/notificationStore';
 import { useWebSocket } from '../hooks/useWebSocket';
 
 export default function ChatPage() {
@@ -16,6 +18,7 @@ export default function ChatPage() {
   } = useSessionStore();
   const [input, setInput] = useState('');
   const [noteInput, setNoteInput] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { sendTyping } = useWebSocket();
@@ -61,6 +64,18 @@ export default function ChatPage() {
     if (!noteInput.trim() || !id) return;
     await addNote(id, noteInput.trim());
     setNoteInput('');
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !id) return;
+    try {
+      const msg = await uploadFile(id, file);
+      useSessionStore.getState().addIncomingMessage(msg);
+    } catch (err) {
+      notifyError(err, 'Не удалось загрузить файл');
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const formatPhone = (phone: string | null) => {
@@ -173,9 +188,36 @@ export default function ChatPage() {
                         borderRadius: 2,
                       }}
                     >
-                      <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                        {msg.content}
-                      </Typography>
+                      {/* Hide "(файл)" text when message has attachments */}
+                      {!(msg.content === '(файл)' && msg.attachments?.length > 0) && (
+                        <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                          {msg.content}
+                        </Typography>
+                      )}
+                      {msg.attachments?.map((att) => {
+                        const url = `/api/v1/admin/sessions/${msg.session_id}/files/${att.id}`;
+                        return att.mime_type.startsWith('image/') ? (
+                          <Box key={att.id} sx={{ mt: 0.5 }}>
+                            <img
+                              src={url}
+                              alt={att.file_name}
+                              style={{ maxWidth: 200, maxHeight: 200, borderRadius: 8, cursor: 'pointer', display: 'block' }}
+                              onClick={() => window.open(url, '_blank')}
+                            />
+                          </Box>
+                        ) : (
+                          <Box key={att.id} sx={{ mt: 0.5 }}>
+                            <a
+                              href={url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              style={{ fontSize: 13, color: 'inherit' }}
+                            >
+                              📎 {att.file_name} ({(att.file_size / 1024).toFixed(0)} KB)
+                            </a>
+                          </Box>
+                        );
+                      })}
                       <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', textAlign: 'right', mt: 0.5 }}>
                         {new Date(msg.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}
                       </Typography>
@@ -194,6 +236,15 @@ export default function ChatPage() {
 
           {/* Input — always visible, agent can write to closed sessions (auto-reopens) */}
           <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', display: 'flex', gap: 1 }}>
+            <input
+              ref={fileInputRef}
+              type="file"
+              style={{ display: 'none' }}
+              onChange={handleFileUpload}
+            />
+            <IconButton color="default" onClick={() => fileInputRef.current?.click()} title="Прикрепить файл">
+              <AttachIcon />
+            </IconButton>
             <TextField
               fullWidth
               size="small"

@@ -282,6 +282,20 @@
   color: inherit;
   text-decoration: underline;
   opacity: 0.8;
+  display: block;
+}
+
+.fixit-attachment-image {
+  max-width: 200px;
+  max-height: 200px;
+  border-radius: 8px;
+  cursor: pointer;
+  display: block;
+  margin-top: 4px;
+}
+
+.fixit-attachment-image:hover {
+  opacity: 0.85;
 }
 
 /* === Typing Indicator === */

@@ -135,7 +135,7 @@ function handleEvent(event: WSEvent) {
         is_read: false,
         read_at: null,
         created_at: data.created_at as string,
-        attachments: [],
+        attachments: (data.attachments as Message['attachments']) || [],
       };
       store.addIncomingMessage(msg);
       store.fetchSessions();

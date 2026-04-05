@@ -11,14 +11,30 @@ export default function SettingsPage() {
   const { settings, loading, fetch, update } = useSettingsStore();
   const [form, setForm] = useState<Record<string, unknown>>({});
   const [saved, setSaved] = useState(false);
+  // Keep array fields as raw strings during editing to preserve cursor position
+  const [fileTypesStr, setFileTypesStr] = useState('');
+  const [originsStr, setOriginsStr] = useState('');
+  const [ipWhitelistStr, setIpWhitelistStr] = useState('');
 
   useEffect(() => { fetch(); }, [fetch]);
   useEffect(() => {
-    if (settings) setForm(settings as unknown as Record<string, unknown>);
+    if (settings) {
+      setForm(settings as never);
+      setFileTypesStr((settings.allowed_file_types || []).join(', '));
+      setOriginsStr((settings.allowed_origins || []).join(', '));
+      setIpWhitelistStr((settings.admin_ip_whitelist || []).join(', '));
+    }
   }, [settings]);
 
+  const parseList = (s: string) => s.split(',').map((v) => v.trim()).filter(Boolean);
+
   const handleSave = async () => {
-    await update(form);
+    await update({
+      ...form,
+      allowed_file_types: parseList(fileTypesStr).map((s) => s.toLowerCase()),
+      allowed_origins: parseList(originsStr),
+      admin_ip_whitelist: parseList(ipWhitelistStr),
+    });
     setSaved(true);
   };
 
@@ -87,19 +103,37 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
+            <Card sx={{ mb: 3 }}>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>Файлы</Typography>
+                <TextField
+                  fullWidth label="Разрешённые типы (через запятую)" margin="normal"
+                  value={fileTypesStr}
+                  onChange={(e) => setFileTypesStr(e.target.value)}
+                  helperText="Расширения: jpg, png, gif, webp, pdf, doc, docx, xls, xlsx"
+                />
+                <TextField
+                  fullWidth label="Макс. размер файла (МБ)" margin="normal" type="number"
+                  value={(form.max_file_size_mb as number) || 10}
+                  onChange={(e) => set('max_file_size_mb', parseInt(e.target.value) || 10)}
+                  helperText="По умолчанию 10 МБ"
+                />
+              </CardContent>
+            </Card>
+
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>Безопасность</Typography>
                 <TextField
                   fullWidth label="Допустимые домены (через запятую)" margin="normal"
-                  value={((form.allowed_origins as string[]) || []).join(', ')}
-                  onChange={(e) => set('allowed_origins', e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean))}
+                  value={originsStr}
+                  onChange={(e) => setOriginsStr(e.target.value)}
                   helperText="Например: https://fixitmail.ru"
                 />
                 <TextField
                   fullWidth label="IP whitelist для админки (через запятую)" margin="normal"
-                  value={((form.admin_ip_whitelist as string[]) || []).join(', ')}
-                  onChange={(e) => set('admin_ip_whitelist', e.target.value.split(',').map((s: string) => s.trim()).filter(Boolean))}
+                  value={ipWhitelistStr}
+                  onChange={(e) => setIpWhitelistStr(e.target.value)}
                   helperText="Пусто = доступ со всех IP"
                 />
                 <TextField

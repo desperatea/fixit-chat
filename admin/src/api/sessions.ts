@@ -40,6 +40,15 @@ export async function markRead(sessionId: string, messageIds: string[]): Promise
   await api.post(`/sessions/${sessionId}/read`, { message_ids: messageIds });
 }
 
+export async function uploadFile(sessionId: string, file: File): Promise<Message> {
+  const formData = new FormData();
+  formData.append('file', file);
+  const { data } = await api.post(`/sessions/${sessionId}/files`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
+  });
+  return data;
+}
+
 export async function getNotes(sessionId: string): Promise<Note[]> {
   const { data } = await api.get(`/sessions/${sessionId}/notes`);
   return data;
