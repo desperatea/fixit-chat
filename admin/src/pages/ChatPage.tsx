@@ -149,7 +149,7 @@ export default function ChatPage() {
               return timeline.map((item) => {
                 if (item.type === 'rating') {
                   return (
-                    <Box key={item.id} sx={{ alignSelf: 'center', my: 0.5 }}>
+                    <Box key={item.id} id={item.id} sx={{ alignSelf: 'center', my: 0.5 }}>
                       <Chip
                         label={`Оценка: ${'★'.repeat(item.rating)}${'☆'.repeat(5 - item.rating)}`}
                         size="small"
@@ -271,7 +271,19 @@ export default function ChatPage() {
               </Box>
               <Box sx={{ px: 1.5, py: 1, borderBottom: 1, borderColor: 'divider' }}>
                 {activeSession.ratings.map((r) => (
-                  <Box key={r.id} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5 }}>
+                  <Box
+                    key={r.id}
+                    sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' }, borderRadius: 1, px: 0.5 }}
+                    onClick={() => {
+                      const el = document.getElementById(`rating-${r.id}`);
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        el.style.transition = 'background 0.3s';
+                        el.style.background = '#fff3cd';
+                        setTimeout(() => { el.style.background = ''; }, 1500);
+                      }
+                    }}
+                  >
                     <Chip
                       label={'★'.repeat(r.rating) + '☆'.repeat(5 - r.rating)}
                       size="small"
