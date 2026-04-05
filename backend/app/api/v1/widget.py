@@ -96,7 +96,10 @@ async def create_glpi_session(
         visitor_org=glpi_user.org,
         initial_message=data.initial_message,
         consent_given=True,
-        custom_fields={"glpi_user_id": glpi_user.user_id},
+        custom_fields={
+            "glpi_user_id": glpi_user.user_id,
+            "glpi_entity_id": glpi_user.entity_id or "",
+        },
     )
 
     service = SessionService(db)

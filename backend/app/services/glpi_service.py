@@ -25,11 +25,12 @@ from app.core.exceptions import BadRequestError, ForbiddenError
 class GlpiTokenData:
     """Verified GLPI user data extracted from token."""
 
-    def __init__(self, user_id: str, name: str, phone: str | None, org: str | None):
+    def __init__(self, user_id: str, name: str, phone: str | None, org: str | None, entity_id: str | None = None):
         self.user_id = user_id
         self.name = name
         self.phone = phone
         self.org = org
+        self.entity_id = entity_id
 
 
 def verify_glpi_token(token: str) -> GlpiTokenData:
@@ -80,4 +81,5 @@ def verify_glpi_token(token: str) -> GlpiTokenData:
         name=name,
         phone=data.get("phone"),
         org=data.get("org"),
+        entity_id=data.get("glpi_entity_id"),
     )

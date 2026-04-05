@@ -1,4 +1,4 @@
-import { AttachFile as AttachIcon, Close as CloseIcon, Refresh as RefreshIcon, Send as SendIcon } from '@mui/icons-material';
+import { AttachFile as AttachIcon, Close as CloseIcon, OpenInNew as OpenInNewIcon, Refresh as RefreshIcon, Send as SendIcon } from '@mui/icons-material';
 import {
   Box, Button, Chip, Divider, IconButton, Paper, TextField, Typography,
 } from '@mui/material';
@@ -96,6 +96,33 @@ export default function ChatPage() {
     }
   };
 
+  const handleCreateTicket = () => {
+    // Build GLPI ticket URL with pre-filled data
+    const glpiBase = 'http://localhost:8090'; // TODO: move to settings
+    const params = new URLSearchParams();
+
+    // Pre-fill entity (organization) if GLPI entity ID is available
+    const entityId = activeSession?.custom_fields?.glpi_entity_id;
+    if (entityId) params.set('entities_id', String(entityId));
+
+    // Pre-fill requester if GLPI user ID is available
+    const userId = activeSession?.custom_fields?.glpi_user_id;
+    if (userId) params.set('_users_id_requester', String(userId));
+
+    // Pre-fill title with visitor name
+    params.set('name', `Обращение: ${activeSession?.visitor_name || 'Посетитель'}`);
+
+    // Pre-fill description with last few messages
+    const lastMessages = messages.slice(-10).map((m) => {
+      const time = new Date(m.created_at).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+      const sender = m.sender_type === 'visitor' ? (activeSession?.visitor_name || 'Посетитель') : m.sender_type === 'agent' ? 'Агент' : 'Система';
+      return `[${time}] ${sender}: ${m.content}`;
+    }).join('\n');
+    params.set('content', `Из чата техподдержки:\n\n${lastMessages}`);
+
+    window.open(`${glpiBase}/front/ticket.form.php?${params.toString()}`, '_blank');
+  };
+
   if (!activeSession) return null;
 
   return (
@@ -146,6 +173,14 @@ export default function ChatPage() {
             {activeSession.visitor_org && (
               <Typography variant="body2" color="text.secondary">{activeSession.visitor_org}</Typography>
             )}
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<OpenInNewIcon />}
+              onClick={handleCreateTicket}
+            >
+              Создать заявку
+            </Button>
             {activeSession.status === 'open' && (
               <Button
                 size="small"
